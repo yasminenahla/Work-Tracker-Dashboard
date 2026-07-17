@@ -2,6 +2,7 @@
 // PATCH /api/config -> partial update                  (requires editor password)
 import { query } from './_db.js';
 import { requireEditor } from './_auth.js';
+import { withErrorHandling } from './_errors.js';
 
 function rowToConfig(row) {
   return {
@@ -29,7 +30,7 @@ const JSONB_COLUMNS = new Set(['lists', 'visible_columns', 'risk_thresholds']);
 // column name into SQL, even from an authenticated request.
 const CASCADE_RENAME_FIELDS = new Set(['type', 'function', 'priority', 'status']);
 
-export default async function handler(req, res) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.method === 'GET') {
     const { rows } = await query('SELECT * FROM tracker_config WHERE id = 1');
     if (!rows.length) {
@@ -75,4 +76,4 @@ export default async function handler(req, res) {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-}
+});

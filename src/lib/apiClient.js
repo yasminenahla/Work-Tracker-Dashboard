@@ -20,8 +20,8 @@ async function request(path, options = {}) {
     let message = `Request to ${path} failed (${res.status})`;
     try {
       const body = await res.json();
-      if (body.error) message = body.error;
-    } catch { /* response wasn't JSON */ }
+      if (body.error) message = body.code ? `${body.error} (${body.code})` : body.error;
+    } catch { /* response wasn't JSON — likely a platform-level crash page, not our API */ }
     throw new Error(message);
   }
   if (res.status === 204) return null;

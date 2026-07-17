@@ -4,8 +4,9 @@
 // "seed on first load" behavior from the original artifact.
 import { query } from '../_db.js';
 import { SAMPLE_ITEMS } from '../_seedData.js';
+import { withErrorHandling } from '../_errors.js';
 
-export default async function handler(req, res) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -40,7 +41,7 @@ export default async function handler(req, res) {
     );
   }
   res.status(200).json({ seeded: true, count: SAMPLE_ITEMS.length });
-}
+});
 
 function offsetISO(base, days) {
   const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate()));

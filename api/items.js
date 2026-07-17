@@ -4,8 +4,9 @@
 import { query } from './_db.js';
 import { requireEditor } from './_auth.js';
 import { rowToItem } from './_itemLogic.js';
+import { withErrorHandling } from './_errors.js';
 
-export default async function handler(req, res) {
+export default withErrorHandling(async function handler(req, res) {
   if (req.method === 'GET') {
     const { rows } = await query('SELECT * FROM items ORDER BY id ASC');
     res.status(200).json({ items: rows.map(rowToItem) });
@@ -57,4 +58,4 @@ export default async function handler(req, res) {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-}
+});

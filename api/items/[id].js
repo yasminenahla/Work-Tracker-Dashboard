@@ -4,8 +4,9 @@
 import { query } from '../_db.js';
 import { requireEditor } from '../_auth.js';
 import { rowToItem, historyForChanges, rollRecurringIfNeeded, WRITABLE_ITEM_COLUMNS } from '../_itemLogic.js';
+import { withErrorHandling } from '../_errors.js';
 
-export default async function handler(req, res) {
+export default withErrorHandling(async function handler(req, res) {
   const id = Number(req.query.id);
   if (!Number.isInteger(id)) {
     res.status(400).json({ error: 'invalid item id' });
@@ -75,4 +76,4 @@ export default async function handler(req, res) {
   }
 
   res.status(405).json({ error: 'Method not allowed' });
-}
+});

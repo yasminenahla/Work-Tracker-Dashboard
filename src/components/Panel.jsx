@@ -37,7 +37,10 @@ export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, 
               />
             </Field>
             <Field label="Owner">
-              <input className="wt-field-input" value={it.owner} disabled={!canWrite} onChange={(e) => patch({ owner: e.target.value })} />
+              <select className="wt-field-select" value={it.owner || ''} disabled={!canWrite} onChange={(e) => patch({ owner: e.target.value })}>
+                <option value="">— Unassigned —</option>
+                {lists.owners.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
             </Field>
           </div>
           <Field label="Next Action">

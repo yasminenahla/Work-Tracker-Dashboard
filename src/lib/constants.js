@@ -10,6 +10,7 @@ export const DEFAULT_LISTS = {
   functions: ['UK EHS', 'UK QFS', 'KSA QFS', 'Cross-functional', 'Project'],
   priorities: ['High', 'Medium', 'Low'],
   statuses: ['Not Started', 'In Progress', 'On Track', 'At Risk', 'Blocked', 'Completed', 'Overdue'],
+  owners: [],
 };
 
 // All columns except pin/description (always shown) can be hidden via Settings.
@@ -59,4 +60,5 @@ export const LIST_GROUPS = [
   { key: 'functions', title: 'Function', itemField: 'function' },
   { key: 'priorities', title: 'Priority', itemField: 'priority' },
   { key: 'statuses', title: 'Status', itemField: 'status' },
+  { key: 'owners', title: 'Owners', itemField: 'owner' },
 ];

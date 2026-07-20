@@ -122,7 +122,13 @@ export function SettingsModal({ config, items, hasSeedItems, onClose, onListChan
           </div>
           <div>
             <div className="wt-field-label">Default owner for new items</div>
-            <input className="wt-field-input" style={{ maxWidth: 260 }} value={config.defaultOwner} placeholder="Your name" onChange={(e) => onChangeDefaultOwner(e.target.value)} />
+            <select className="wt-field-select" style={{ maxWidth: 260 }} value={config.defaultOwner} onChange={(e) => onChangeDefaultOwner(e.target.value)}>
+              <option value="">— Unassigned —</option>
+              {config.lists.owners.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {config.lists.owners.length === 0 ? (
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Add names to the Owners roster in Manage Lists first.</div>
+            ) : null}
           </div>
         </div>
       ) : null}

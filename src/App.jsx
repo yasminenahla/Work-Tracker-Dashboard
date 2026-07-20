@@ -245,7 +245,6 @@ export default function App() {
   const derived = useMemo(() => {
     if (!items || !config) return null;
     const staleDays = config.staleDays;
-    const owners = Array.from(new Set(items.map((it) => it.owner).filter(Boolean))).sort();
     const visible = items.filter((it) => itemMatchesFilters(it, filters, quickFilter, config.riskThresholds, staleDays));
 
     const openItems = items.filter((i) => i.status !== 'Completed');
@@ -275,7 +274,7 @@ export default function App() {
     const daysSinceExport = config.lastExportedAt ? daysBetween(startOfToday(), new Date(config.lastExportedAt)) : null;
     const showExportNudge = items.length > 0 && !exportBannerDismissed && (config.lastExportedAt === null || Math.abs(daysSinceExport) >= 7);
 
-    return { owners, visible, counts, functionBreakdown, statusBreakdown, staleCount, hasSeedItems, showExportNudge };
+    return { visible, counts, functionBreakdown, statusBreakdown, staleCount, hasSeedItems, showExportNudge };
   }, [items, config, filters, quickFilter, exportBannerDismissed]);
 
   if (loadError) {
@@ -358,7 +357,7 @@ export default function App() {
               </div>
             </div>
             <Toolbar
-              filters={filters} lists={config.lists} owners={derived.owners} staleDays={config.staleDays}
+              filters={filters} lists={config.lists} owners={config.lists.owners} staleDays={config.staleDays}
               lastExportedLabel={config.lastExportedAt ? relativeTimeFrom(config.lastExportedAt) : 'never'}
               onFilterChange={handleFilterChange} onExport={() => exportCsv(derived.visible)}
             />

@@ -28,7 +28,7 @@ const WRITABLE_CONFIG_COLUMNS = {
 const JSONB_COLUMNS = new Set(['lists', 'visible_columns', 'risk_thresholds']);
 // Allowlist for cascadeRename.field — never interpolate an arbitrary
 // column name into SQL, even from an authenticated request.
-const CASCADE_RENAME_FIELDS = new Set(['type', 'function', 'priority', 'status']);
+const CASCADE_RENAME_FIELDS = new Set(['type', 'function', 'priority', 'status', 'owner']);
 
 export default withErrorHandling(async function handler(req, res) {
   if (req.method === 'GET') {

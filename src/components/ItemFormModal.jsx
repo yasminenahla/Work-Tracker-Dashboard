@@ -56,7 +56,10 @@ export function ItemFormModal({ mode, draft: d, errors, lists, onChange, onCance
           </select>
         </Field>
         <Field label="Owner">
-          <input className="wt-field-input" value={d.owner} onChange={(e) => set({ owner: e.target.value })} />
+          <select className="wt-field-select" value={d.owner} onChange={(e) => set({ owner: e.target.value })}>
+            <option value="">— Unassigned —</option>
+            {lists.owners.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
         </Field>
         <Field label="Raised By">
           <input className="wt-field-input" value={d.raisedBy} onChange={(e) => set({ raisedBy: e.target.value })} />

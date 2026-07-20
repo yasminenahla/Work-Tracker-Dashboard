@@ -127,6 +127,36 @@ async function main() {
   assert(stillProject.length === 0, 'no items left referencing old "Project" value');
   assert(nowProgramme.length > 0, 'cascaded items now say "Programme": count=' + nowProgramme.length);
 
+  console.log('--- Owners roster: add + rename with cascade ---');
+  res = mockRes();
+  await configHandler(mockReq({ method: 'GET' }), res);
+  const preOwnersConfig = res.body.config;
+  assert(Array.isArray(preOwnersConfig.lists.owners), 'owners key exists on lists (migration 0002 applied)');
+
+  res = mockRes();
+  await configHandler(mockReq({
+    method: 'PATCH', headers: AUTH,
+    body: { lists: { ...preOwnersConfig.lists, owners: [...preOwnersConfig.lists.owners, 'R. Match'] } },
+  }), res);
+  assert(res.body.config.lists.owners.includes('R. Match'), 'owner added to roster');
+
+  res = mockRes();
+  await configHandler(mockReq({
+    method: 'PATCH', headers: AUTH,
+    body: {
+      lists: { ...preOwnersConfig.lists, owners: preOwnersConfig.lists.owners.filter((o) => o !== 'R. Match').concat('Rebecca Match') },
+      cascadeRename: { field: 'owner', oldValue: 'R. Match', newValue: 'Rebecca Match' },
+    },
+  }), res);
+  assert(res.body.config.lists.owners.includes('Rebecca Match') && !res.body.config.lists.owners.includes('R. Match'), 'owner renamed in roster');
+
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'GET' }), res);
+  const stillOldOwner = res.body.items.filter((i) => i.owner === 'R. Match');
+  const nowNewOwner = res.body.items.filter((i) => i.owner === 'Rebecca Match');
+  assert(stillOldOwner.length === 0, 'no items left referencing old owner name "R. Match"');
+  assert(nowNewOwner.length > 0, 'cascaded items now say "Rebecca Match": count=' + nowNewOwner.length);
+
   console.log('--- DELETE /api/items?sample=true (clear sample data) ---');
   res = mockRes();
   await itemsHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { sample: 'true' } }), res);

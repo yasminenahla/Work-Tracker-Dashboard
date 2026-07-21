@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { ModalShell, cx } from './Common.jsx';
 import { COLUMN_DEFS, LIST_GROUPS } from '../lib/constants.js';
+import { fmtDateTime, relativeTimeFrom } from '../lib/datamodel.js';
 
 function ListManagerGroup({ title, values, usageCounts, onAdd, onRemove, onRename }) {
   const [newValue, setNewValue] = useState('');
@@ -60,7 +61,11 @@ function ListManagerGroup({ title, values, usageCounts, onAdd, onRemove, onRenam
   );
 }
 
-export function SettingsModal({ config, items, hasSeedItems, onClose, onListChange, onToggleColumn, onChangeThreshold, onChangeDefaultOwner, onClearSampleData, onRequestClearAll }) {
+export function SettingsModal({
+  config, items, hasSeedItems, onClose, onListChange, onToggleColumn, onChangeThreshold, onChangeDefaultOwner,
+  onClearSampleData, onRequestClearAll,
+  snapshots, snapshotsLoading, snapshotsError, onRetrySnapshots, onTakeSnapshot, snapshotBusy, onRequestRestore,
+}) {
   const [tab, setTab] = useState('lists');
 
   function usageCountsFor(field) {
@@ -74,6 +79,7 @@ export function SettingsModal({ config, items, hasSeedItems, onClose, onListChan
     { key: 'columns', label: 'Columns' },
     { key: 'preferences', label: 'Risk & Defaults' },
     { key: 'data', label: 'Data' },
+    { key: 'history', label: 'History' },
   ];
 
   return (
@@ -157,6 +163,43 @@ export function SettingsModal({ config, items, hasSeedItems, onClose, onListChan
               Clear all entries
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {tab === 'history' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              A snapshot of every item is taken automatically before any delete (single item, sample data, or clearing all) — restoring one puts the tracker back exactly as it was, and undoes nothing else you've done since.
+            </div>
+            <button type="button" className="wt-btn-outline" style={{ whiteSpace: 'nowrap' }} disabled={snapshotBusy} onClick={onTakeSnapshot}>
+              {snapshotBusy ? 'Saving…' : '+ Snapshot now'}
+            </button>
+          </div>
+
+          {snapshotsError ? (
+            <div className="wt-error-banner">
+              {snapshotsError} <button type="button" className="wt-btn-outline" style={{ marginLeft: 8 }} onClick={onRetrySnapshots}>Retry</button>
+            </div>
+          ) : snapshotsLoading ? (
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Loading version history…</div>
+          ) : snapshots.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>No snapshots yet — one will be taken automatically the first time you delete something.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+              {snapshots.map((s) => (
+                <div key={s.id} className="wt-list-row" style={{ alignItems: 'center' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{s.reason}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }} title={fmtDateTime(s.createdAt)}>
+                      {relativeTimeFrom(s.createdAt) || fmtDateTime(s.createdAt)} · {s.itemCount} item{s.itemCount === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                  <button type="button" className="wt-btn-outline" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => onRequestRestore(s)}>Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 

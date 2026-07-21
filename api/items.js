@@ -6,6 +6,7 @@ import { query } from './_db.js';
 import { requireEditor } from './_auth.js';
 import { rowToItem } from './_itemLogic.js';
 import { withErrorHandling } from './_errors.js';
+import { createItemsSnapshot } from './_snapshotLogic.js';
 
 export default withErrorHandling(async function handler(req, res) {
   if (req.method === 'GET') {
@@ -50,11 +51,13 @@ export default withErrorHandling(async function handler(req, res) {
   if (req.method === 'DELETE') {
     if (!requireEditor(req, res)) return;
     if (req.query.sample === 'true') {
+      await createItemsSnapshot('Before clearing sample data');
       await query('DELETE FROM items WHERE is_sample = true');
       res.status(200).json({ ok: true });
       return;
     }
     if (req.query.all === 'true') {
+      await createItemsSnapshot('Before clearing all entries');
       const { rowCount } = await query('DELETE FROM items');
       res.status(200).json({ ok: true, deleted: rowCount });
       return;

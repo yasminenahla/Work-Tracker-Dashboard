@@ -79,3 +79,16 @@ export async function updateFeedback(id, patch) {
 export async function deleteFeedback(id) {
   await request(`/api/feedback/${id}`, { method: 'DELETE' });
 }
+
+export async function fetchSnapshots() {
+  const data = await request('/api/snapshots');
+  return data.snapshots;
+}
+export async function createSnapshot() {
+  const data = await request('/api/snapshots', { method: 'POST' });
+  return data.snapshots;
+}
+export async function restoreSnapshot(id) {
+  const data = await request(`/api/snapshots/${id}/restore`, { method: 'POST' });
+  return data.items;
+}

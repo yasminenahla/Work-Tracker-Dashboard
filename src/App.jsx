@@ -17,7 +17,7 @@ import { FeedbackFormModal, emptyFeedbackDraft, feedbackDraftFromEntry, validate
 import * as api from './lib/apiClient.js';
 import { UnauthorizedError } from './lib/apiClient.js';
 import { getStoredPassword, setStoredPassword, clearStoredPassword, isUnlocked as checkUnlocked } from './lib/auth.js';
-import { isOverdue, isDueThisWeek, isStale, relativeTimeFrom, startOfToday, daysBetween, itemsToCsv, downloadCsv, todayISO } from './lib/datamodel.js';
+import { isOverdue, isDueThisWeek, isStale, relativeTimeFrom, fmtDateTime, startOfToday, daysBetween, itemsToCsv, downloadCsv, todayISO } from './lib/datamodel.js';
 import { functionColorVar, statusColorVar } from './lib/colors.js';
 import { LIST_GROUPS } from './lib/constants.js';
 
@@ -60,6 +60,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
   const [exportBannerDismissed, setExportBannerDismissed] = useState(false);
+
+  // ---- version history (snapshots) ----
+  const [snapshots, setSnapshots] = useState(null);
+  const [snapshotsError, setSnapshotsError] = useState(null);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null);
 
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockError, setUnlockError] = useState(null);
@@ -217,6 +223,45 @@ export default function App() {
       setPanelItemId(null);
       setFormModal(null);
       setClearAllConfirmOpen(false);
+      setSettingsOpen(false);
+    } catch (err) {
+      if (!handleAuthError(err)) setActionError(err.message);
+    }
+  }
+
+  // ---- version history ----
+  async function loadSnapshots() {
+    setSnapshotsError(null);
+    try {
+      const list = await api.fetchSnapshots();
+      setSnapshots(list);
+    } catch (err) {
+      if (!handleAuthError(err)) setSnapshotsError(err.message || 'Could not load version history.');
+    }
+  }
+  function openSettings() {
+    setSettingsOpen(true);
+    loadSnapshots();
+  }
+  async function takeSnapshot() {
+    setSnapshotBusy(true);
+    try {
+      const list = await api.createSnapshot();
+      setSnapshots(list);
+    } catch (err) {
+      if (!handleAuthError(err)) setActionError(err.message);
+    } finally {
+      setSnapshotBusy(false);
+    }
+  }
+  async function confirmRestore() {
+    if (!restoreTarget) return;
+    try {
+      const restoredItems = await api.restoreSnapshot(restoreTarget.id);
+      setItems(restoredItems);
+      setPanelItemId(null);
+      setFormModal(null);
+      setRestoreTarget(null);
       setSettingsOpen(false);
     } catch (err) {
       if (!handleAuthError(err)) setActionError(err.message);
@@ -394,7 +439,7 @@ export default function App() {
     <div className="wt-app">
       <Header
         functionSubtitle={config.lists.functions.join(' · ') || 'Your work, tracked'}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={openSettings}
         onOpenAdd={() => setFormModal({ mode: 'add', id: null, draft: emptyDraft(config), errors: {} })}
         isUnlocked={isUnlocked} onOpenUnlock={openUnlock} onLock={lock} canWrite={isUnlocked}
       />
@@ -504,6 +549,9 @@ export default function App() {
           onChangeThreshold={changeThreshold} onChangeDefaultOwner={changeDefaultOwner}
           onClearSampleData={clearSampleData}
           onRequestClearAll={() => setClearAllConfirmOpen(true)}
+          snapshots={snapshots || []} snapshotsLoading={snapshots === null && !snapshotsError} snapshotsError={snapshotsError}
+          onRetrySnapshots={loadSnapshots} onTakeSnapshot={takeSnapshot} snapshotBusy={snapshotBusy}
+          onRequestRestore={(s) => setRestoreTarget(s)}
         />
       ) : null}
 
@@ -528,6 +576,22 @@ export default function App() {
           confirmLabel="Clear all entries"
           onCancel={() => setClearAllConfirmOpen(false)}
           onConfirm={clearAllItems}
+        />
+      ) : null}
+
+      {restoreTarget ? (
+        <ConfirmDialog
+          title="Restore this snapshot?"
+          body={
+            <Fragment>
+              This replaces the current {items.length} item{items.length === 1 ? '' : 's'} with the <span className="wt-confirm-item">{restoreTarget.itemCount} item{restoreTarget.itemCount === 1 ? '' : 's'}</span> from
+              this snapshot ("{restoreTarget.reason}", {relativeTimeFrom(restoreTarget.createdAt) || fmtDateTime(restoreTarget.createdAt)}). A snapshot of the current state is taken first, so this itself can be undone.
+            </Fragment>
+          }
+          confirmPhrase="RESTORE"
+          confirmLabel="Restore snapshot"
+          onCancel={() => setRestoreTarget(null)}
+          onConfirm={confirmRestore}
         />
       ) : null}
 

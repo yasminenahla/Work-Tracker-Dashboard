@@ -13,6 +13,8 @@ import seedHandler from '../api/items/seed.js';
 import configHandler from '../api/config.js';
 import feedbackHandler from '../api/feedback.js';
 import feedbackEntryHandler from '../api/feedback/[id].js';
+import snapshotsHandler from '../api/snapshots.js';
+import restoreHandler from '../api/snapshots/[id]/restore.js';
 
 function mockRes() {
   const res = { statusCode: 200 };
@@ -177,6 +179,62 @@ async function main() {
   res = mockRes();
   await itemsHandler(mockReq({ method: 'GET' }), res);
   assert(res.body.items.length === 0, 'no items remain after clear-all: ' + res.body.items.length + ' left');
+
+  console.log('--- Version history: auto-snapshot before single-item delete ---');
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'POST', headers: AUTH, body: { description: 'Snapshot test A', type: 'Ad-hoc', function: 'UK EHS', priority: 'High', status: 'Not Started' } }), res);
+  const itemA = res.body.item;
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'POST', headers: AUTH, body: { description: 'Snapshot test B', type: 'Ad-hoc', function: 'UK QFS', priority: 'Low', status: 'Not Started' } }), res);
+  const itemB = res.body.item;
+
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { id: String(itemA.id) } }), res);
+  assert(res.statusCode === 200, 'item A deleted');
+
+  res = mockRes();
+  await snapshotsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.statusCode === 200, 'snapshots listed');
+  const autoSnap = res.body.snapshots[0];
+  assert(autoSnap.reason.includes('Snapshot test A'), 'auto-snapshot reason mentions deleted item: ' + autoSnap.reason);
+  assert(autoSnap.itemCount === 2, 'auto-snapshot captured both items pre-delete: got ' + autoSnap.itemCount);
+
+  console.log('--- Restore: item A comes back with its original id, item B untouched ---');
+  res = mockRes();
+  await restoreHandler(mockReq({ method: 'POST', query: { id: String(autoSnap.id) } }), res);
+  assert(res.statusCode === 401, 'unauthenticated restore rejected');
+
+  res = mockRes();
+  await restoreHandler(mockReq({ method: 'POST', headers: AUTH, query: { id: String(autoSnap.id) } }), res);
+  assert(res.statusCode === 200, 'restore succeeded');
+  assert(res.body.items.length === 2, 'restore returned both items: got ' + res.body.items.length);
+  const restoredA = res.body.items.find((i) => i.id === itemA.id);
+  const restoredB = res.body.items.find((i) => i.id === itemB.id);
+  assert(!!restoredA && restoredA.description === 'Snapshot test A', 'item A restored with its original id and description');
+  assert(!!restoredB && restoredB.description === 'Snapshot test B', 'item B still present, untouched by the restore');
+
+  console.log('--- Restoring is itself undoable (pre-restore snapshot was logged) ---');
+  res = mockRes();
+  await snapshotsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  const preRestoreSnap = res.body.snapshots[0];
+  assert(preRestoreSnap.reason.startsWith('Before restoring snapshot'), 'pre-restore snapshot logged: ' + preRestoreSnap.reason);
+
+  console.log('--- New item created after restore gets a fresh, non-colliding id ---');
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'POST', headers: AUTH, body: { description: 'Post-restore item', type: 'Ad-hoc', function: 'UK EHS', priority: 'Medium', status: 'Not Started' } }), res);
+  assert(res.statusCode === 201, 'id sequence still healthy after restore: ' + JSON.stringify(res.body));
+
+  console.log('--- Manual "Snapshot now" checkpoint ---');
+  res = mockRes();
+  await snapshotsHandler(mockReq({ method: 'POST', headers: AUTH }), res);
+  assert(res.statusCode === 201 && res.body.snapshots[0].reason === 'Manual checkpoint', 'manual snapshot created');
+
+  console.log('--- Snapshot retention: capped at 20 ---');
+  for (let i = 0; i < 25; i++) {
+    res = mockRes();
+    await snapshotsHandler(mockReq({ method: 'POST', headers: AUTH }), res);
+  }
+  assert(res.body.snapshots.length === 20, 'retention prunes down to 20: got ' + res.body.snapshots.length);
 
   console.log('--- Feedback: GET without auth is rejected (editor-only, unlike /api/items) ---');
   res = mockRes();

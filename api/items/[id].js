@@ -5,6 +5,7 @@ import { query } from '../_db.js';
 import { requireEditor } from '../_auth.js';
 import { rowToItem, historyForChanges, rollRecurringIfNeeded, WRITABLE_ITEM_COLUMNS } from '../_itemLogic.js';
 import { withErrorHandling } from '../_errors.js';
+import { createItemsSnapshot } from '../_snapshotLogic.js';
 
 export default withErrorHandling(async function handler(req, res) {
   const id = Number(req.query.id);
@@ -15,6 +16,9 @@ export default withErrorHandling(async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     if (!requireEditor(req, res)) return;
+    const { rows: existingRows } = await query('SELECT description FROM items WHERE id = $1', [id]);
+    const description = existingRows[0]?.description || `item #${id}`;
+    await createItemsSnapshot(`Before deleting "${description}"`);
     await query('DELETE FROM items WHERE id = $1', [id]);
     res.status(200).json({ ok: true });
     return;

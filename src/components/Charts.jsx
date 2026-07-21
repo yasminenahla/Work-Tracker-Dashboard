@@ -5,6 +5,8 @@
 // color-alone.
 import { solidColor } from '../lib/colors.js';
 
+// Each bar is stacked by status (same colors as the Status donut) so you
+// can see the open-item health of a function at a glance, not just volume.
 export function FunctionBarChart({ data, activeValue, onSelect }) {
   const max = Math.max(1, ...data.map((r) => r.count));
   if (data.length === 0) {
@@ -14,15 +16,18 @@ export function FunctionBarChart({ data, activeValue, onSelect }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {data.map((r) => {
         const isActive = activeValue === r.label;
+        const title = `${r.label}: ${r.count} (${r.segments.map((s) => `${s.status} ${s.count}`).join(', ')})`;
         return (
           <button
-            key={r.label} type="button" title={`${r.label}: ${r.count}`}
+            key={r.label} type="button" title={title}
             onClick={() => onSelect(isActive ? '' : r.label)}
             style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', opacity: !activeValue || isActive ? 1 : 0.55 }}
           >
             <span className="wt-bar-row__label" style={{ fontWeight: isActive ? 700 : 400 }}>{r.label}</span>
             <span className="wt-bar-row__track">
-              <span className="wt-bar-row__fill" style={{ width: `${(r.count / max) * 100}%`, background: solidColor(r.rgbVar) }} />
+              {r.segments.map((s) => (
+                <span key={s.status} className="wt-bar-row__segment" style={{ width: `${(s.count / max) * 100}%`, background: solidColor(s.rgbVar) }} />
+              ))}
             </span>
             <span className="wt-bar-row__count">{r.count}</span>
           </button>

@@ -18,17 +18,21 @@ import * as api from './lib/apiClient.js';
 import { UnauthorizedError } from './lib/apiClient.js';
 import { getStoredPassword, setStoredPassword, clearStoredPassword, isUnlocked as checkUnlocked } from './lib/auth.js';
 import { isOverdue, isDueThisWeek, isStale, relativeTimeFrom, fmtDateTime, startOfToday, daysBetween, itemsToCsv, downloadCsv, todayISO } from './lib/datamodel.js';
-import { functionColorVar, statusColorVar } from './lib/colors.js';
+import { statusColorVar } from './lib/colors.js';
 import { LIST_GROUPS } from './lib/constants.js';
 
 function emptyFilters() {
   return { function: '', type: '', status: '', owner: '', stale: false, search: '' };
 }
 
-function itemMatchesFilters(it, filters, quickFilter, riskThresholds, staleDays) {
-  if (filters.function && it.function !== filters.function) return false;
+// `exclude` skips one filter dimension's own check — used by the charts so
+// e.g. the function breakdown still compares all functions against each
+// other under the active quick-filter/search/etc, instead of collapsing to
+// a single 100% bar once a function is itself selected.
+function itemMatchesFilters(it, filters, quickFilter, riskThresholds, staleDays, exclude) {
+  if (exclude !== 'function' && filters.function && it.function !== filters.function) return false;
   if (filters.type && it.type !== filters.type) return false;
-  if (filters.status && it.status !== filters.status) return false;
+  if (exclude !== 'status' && filters.status && it.status !== filters.status) return false;
   if (filters.owner && !(it.owners || []).includes(filters.owner)) return false;
   if (filters.stale && !isStale(it, staleDays)) return false;
   if (filters.search) {
@@ -391,14 +395,31 @@ export default function App() {
       pinned: items.filter((i) => i.pinned).length,
     };
 
-    const funcCounts = {};
-    openItems.forEach((i) => { funcCounts[i.function] = (funcCounts[i.function] || 0) + 1; });
+    // Both charts reflect the currently active quick-filter/search/etc, but
+    // ignore their own dimension's filter so clicking one bar/slice doesn't
+    // collapse the chart down to just itself — you can still compare across
+    // functions/statuses while a quick-filter card narrows the data.
+    const functionScoped = items.filter((it) =>
+      it.status !== 'Completed' && itemMatchesFilters(it, filters, quickFilter, config.riskThresholds, staleDays, 'function'));
+    const funcStatusCounts = {};
+    functionScoped.forEach((i) => {
+      funcStatusCounts[i.function] = funcStatusCounts[i.function] || {};
+      funcStatusCounts[i.function][i.status] = (funcStatusCounts[i.function][i.status] || 0) + 1;
+    });
     const functionBreakdown = config.lists.functions
-      .filter((f) => funcCounts[f])
-      .map((f) => ({ label: f, count: funcCounts[f], rgbVar: functionColorVar(f, config.lists) }));
+      .filter((f) => funcStatusCounts[f])
+      .map((f) => {
+        const byStatus = funcStatusCounts[f];
+        const segments = config.lists.statuses
+          .filter((s) => byStatus[s])
+          .map((s) => ({ status: s, count: byStatus[s], rgbVar: statusColorVar(s, config.lists) }));
+        return { label: f, count: segments.reduce((sum, s) => sum + s.count, 0), segments };
+      });
 
+    const statusScoped = items.filter((it) =>
+      itemMatchesFilters(it, filters, quickFilter, config.riskThresholds, staleDays, 'status'));
     const statusCounts = {};
-    items.forEach((i) => { statusCounts[i.status] = (statusCounts[i.status] || 0) + 1; });
+    statusScoped.forEach((i) => { statusCounts[i.status] = (statusCounts[i.status] || 0) + 1; });
     const statusBreakdown = config.lists.statuses
       .filter((s) => statusCounts[s])
       .map((s) => ({ label: s, count: statusCounts[s], rgbVar: statusColorVar(s, config.lists) }));

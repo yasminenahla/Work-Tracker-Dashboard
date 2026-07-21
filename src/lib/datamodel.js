@@ -45,11 +45,14 @@ export function relativeTimeFrom(iso) {
 }
 
 export function isOverdue(item) {
-  if (item.status === 'Overdue') return true;
   if (item.status === 'Completed') return false;
   const due = parseDate(item.dueDate);
-  if (!due) return false;
-  return due.getTime() < startOfToday().getTime();
+  // A real due date is the source of truth once one is set — otherwise an
+  // item whose due date got pushed out stays flagged forever just because
+  // its Status still literally reads "Overdue". Only fall back to the
+  // status label for items with no due date at all.
+  if (due) return due.getTime() < startOfToday().getTime();
+  return item.status === 'Overdue';
 }
 
 export function isStale(item, staleDays) {

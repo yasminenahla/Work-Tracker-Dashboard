@@ -1,6 +1,7 @@
-// GET  /api/items          -> { items: [...] }               (public, read-only)
-// POST /api/items          -> create one item                (requires editor password)
-// DELETE /api/items?sample=true -> remove all sample rows     (requires editor password)
+// GET  /api/items                -> { items: [...] }          (public, read-only)
+// POST /api/items                -> create one item           (requires editor password)
+// DELETE /api/items?sample=true  -> remove all sample rows     (requires editor password)
+// DELETE /api/items?all=true     -> remove EVERY item          (requires editor password)
 import { query } from './_db.js';
 import { requireEditor } from './_auth.js';
 import { rowToItem } from './_itemLogic.js';
@@ -53,7 +54,12 @@ export default withErrorHandling(async function handler(req, res) {
       res.status(200).json({ ok: true });
       return;
     }
-    res.status(400).json({ error: 'DELETE /api/items requires ?sample=true (delete a single item via /api/items/:id)' });
+    if (req.query.all === 'true') {
+      const { rowCount } = await query('DELETE FROM items');
+      res.status(200).json({ ok: true, deleted: rowCount });
+      return;
+    }
+    res.status(400).json({ error: 'DELETE /api/items requires ?sample=true or ?all=true (delete a single item via /api/items/:id)' });
     return;
   }
 

@@ -60,7 +60,7 @@ function ListManagerGroup({ title, values, usageCounts, onAdd, onRemove, onRenam
   );
 }
 
-export function SettingsModal({ config, items, hasSeedItems, onClose, onListChange, onToggleColumn, onChangeThreshold, onChangeDefaultOwner, onClearSampleData }) {
+export function SettingsModal({ config, items, hasSeedItems, onClose, onListChange, onToggleColumn, onChangeThreshold, onChangeDefaultOwner, onClearSampleData, onRequestClearAll }) {
   const [tab, setTab] = useState('lists');
 
   function usageCountsFor(field) {
@@ -144,6 +144,17 @@ export function SettingsModal({ config, items, hasSeedItems, onClose, onListChan
             </div>
             <button type="button" className="wt-btn-danger" disabled={!hasSeedItems} style={{ opacity: hasSeedItems ? 1 : 0.5 }} onClick={onClearSampleData}>
               Clear sample data
+            </button>
+          </div>
+          <div className="wt-danger-zone">
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>Clear all entries</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                Permanently deletes every item on the tracker — {items.length} item{items.length === 1 ? '' : 's'} right now, including full activity history. This can't be undone.
+              </div>
+            </div>
+            <button type="button" className="wt-btn-danger" disabled={items.length === 0} style={{ opacity: items.length === 0 ? 0.5 : 1 }} onClick={onRequestClearAll}>
+              Clear all entries
             </button>
           </div>
         </div>

@@ -49,6 +49,9 @@ export async function deleteItem(id) {
 export async function clearSampleItems() {
   await request('/api/items?sample=true', { method: 'DELETE' });
 }
+export async function clearAllItems() {
+  await request('/api/items?all=true', { method: 'DELETE' });
+}
 export async function seedIfEmpty() {
   return request('/api/items/seed', { method: 'POST' });
 }

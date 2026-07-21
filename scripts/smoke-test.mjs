@@ -167,6 +167,17 @@ async function main() {
   await itemsHandler(mockReq({ method: 'GET' }), res);
   assert(res.body.items.every((i) => !i.isSample), 'no sample items remain: ' + res.body.items.length + ' left');
 
+  console.log('--- DELETE /api/items?all=true (clear all entries) ---');
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'DELETE', query: { all: 'true' } }), res);
+  assert(res.statusCode === 401, 'unauthenticated clear-all rejected');
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { all: 'true' } }), res);
+  assert(res.statusCode === 200, 'clear-all succeeded');
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'GET' }), res);
+  assert(res.body.items.length === 0, 'no items remain after clear-all: ' + res.body.items.length + ' left');
+
   console.log('--- Feedback: GET without auth is rejected (editor-only, unlike /api/items) ---');
   res = mockRes();
   await feedbackHandler(mockReq({ method: 'GET' }), res);

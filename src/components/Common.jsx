@@ -1,5 +1,6 @@
 // Small reusable UI pieces shared across the dashboard, table, panel and
 // modals. Presentation-only — no data-fetching or storage knowledge.
+import { useState } from 'react';
 import { functionColorVar, statusColorVar, priorityColorVar, riskColorVar, solidColor, tintColor, progressColorVar } from '../lib/colors.js';
 
 export function cx(...parts) {
@@ -67,13 +68,29 @@ export function ModalShell({ onClose, size, title, subtitle, ariaLabel, children
   );
 }
 
-export function ConfirmDialog({ title, body, onCancel, onConfirm, cancelLabel, confirmLabel, busy }) {
+// confirmPhrase: for actions too consequential for a plain Cancel/Delete
+// (e.g. wiping every item at once) — the Confirm button stays disabled
+// until the exact phrase is typed, same pattern GitHub uses for "delete
+// this repo".
+export function ConfirmDialog({ title, body, onCancel, onConfirm, cancelLabel, confirmLabel, busy, confirmPhrase }) {
+  const [typed, setTyped] = useState('');
+  const canConfirm = !confirmPhrase || typed === confirmPhrase;
   return (
     <ModalShell onClose={onCancel} size="sm" title={title} ariaLabel={title}>
       <div className="wt-confirm-body">{body}</div>
+      {confirmPhrase ? (
+        <div style={{ marginTop: 10 }}>
+          <div className="wt-field-label">Type <strong>{confirmPhrase}</strong> to confirm</div>
+          <input
+            className="wt-field-input" autoFocus value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canConfirm && !busy) onConfirm(); }}
+          />
+        </div>
+      ) : null}
       <div className="wt-modal__footer">
         <button type="button" className="wt-btn-ghost" onClick={onCancel}>{cancelLabel || 'Cancel'}</button>
-        <button type="button" className="wt-btn-danger" onClick={onConfirm} disabled={busy}>{confirmLabel || 'Delete'}</button>
+        <button type="button" className="wt-btn-danger" onClick={onConfirm} disabled={busy || !canConfirm}>{confirmLabel || 'Delete'}</button>
       </div>
     </ModalShell>
   );

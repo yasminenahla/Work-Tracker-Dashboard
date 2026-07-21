@@ -58,6 +58,7 @@ export default function App() {
   const [formModal, setFormModal] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [clearAllConfirmOpen, setClearAllConfirmOpen] = useState(false);
   const [exportBannerDismissed, setExportBannerDismissed] = useState(false);
 
   const [unlockOpen, setUnlockOpen] = useState(false);
@@ -204,6 +205,19 @@ export default function App() {
       setItems((prev) => prev.filter((it) => !it.isSample));
       const updated = await api.updateConfig({ sampleDataCleared: true });
       setConfig(updated);
+    } catch (err) {
+      if (!handleAuthError(err)) setActionError(err.message);
+    }
+  }
+
+  async function clearAllItems() {
+    try {
+      await api.clearAllItems();
+      setItems([]);
+      setPanelItemId(null);
+      setFormModal(null);
+      setClearAllConfirmOpen(false);
+      setSettingsOpen(false);
     } catch (err) {
       if (!handleAuthError(err)) setActionError(err.message);
     }
@@ -489,6 +503,7 @@ export default function App() {
           onListChange={onListChange} onToggleColumn={toggleColumn}
           onChangeThreshold={changeThreshold} onChangeDefaultOwner={changeDefaultOwner}
           onClearSampleData={clearSampleData}
+          onRequestClearAll={() => setClearAllConfirmOpen(true)}
         />
       ) : null}
 
@@ -502,6 +517,17 @@ export default function App() {
           body={<Fragment>This will permanently remove <span className="wt-confirm-item">{deleteTarget.description}</span> and its activity history. This can’t be undone.</Fragment>}
           onCancel={() => setDeleteConfirmId(null)}
           onConfirm={() => { deleteItem(deleteConfirmId); setDeleteConfirmId(null); }}
+        />
+      ) : null}
+
+      {clearAllConfirmOpen ? (
+        <ConfirmDialog
+          title="Clear all entries?"
+          body={<Fragment>This will permanently delete <span className="wt-confirm-item">all {items.length} item{items.length === 1 ? '' : 's'}</span> on the tracker, including their full activity history. This can’t be undone.</Fragment>}
+          confirmPhrase="DELETE ALL"
+          confirmLabel="Clear all entries"
+          onCancel={() => setClearAllConfirmOpen(false)}
+          onConfirm={clearAllItems}
         />
       ) : null}
 

@@ -68,9 +68,13 @@ export function SettingsModal({
 }) {
   const [tab, setTab] = useState('lists');
 
-  function usageCountsFor(field) {
+  function usageCountsFor(groupKey, field) {
     const counts = {};
-    items.forEach((it) => { counts[it[field]] = (counts[it[field]] || 0) + 1; });
+    if (groupKey === 'owners') {
+      items.forEach((it) => { (it.owners || []).forEach((o) => { counts[o] = (counts[o] || 0) + 1; }); });
+    } else {
+      items.forEach((it) => { counts[it[field]] = (counts[it[field]] || 0) + 1; });
+    }
     return counts;
   }
 
@@ -94,7 +98,7 @@ export function SettingsModal({
         <div className="wt-lists-grid">
           {LIST_GROUPS.map((g) => (
             <ListManagerGroup
-              key={g.key} title={g.title} values={config.lists[g.key]} usageCounts={usageCountsFor(g.itemField)}
+              key={g.key} title={g.title} values={config.lists[g.key]} usageCounts={usageCountsFor(g.key, g.itemField)}
               onAdd={(v) => onListChange(g.key, 'add', v)}
               onRemove={(v) => onListChange(g.key, 'remove', v)}
               onRename={(oldV, newV) => onListChange(g.key, 'rename', oldV, newV)}

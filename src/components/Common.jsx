@@ -125,6 +125,45 @@ export function BufferedField({ as = 'input', value, onCommit, ...rest }) {
   return as === 'textarea' ? <textarea {...props} /> : <input {...props} />;
 }
 
+// Chips for the selected owners (each removable) plus a "+ Add owner…"
+// dropdown of whatever's left in the roster. `owners` is always an array
+// (never a bare string) by the time it reaches here.
+export function OwnersMultiSelect({ owners, allOwners, disabled, onChange }) {
+  const selected = owners || [];
+  const remaining = (allOwners || []).filter((o) => !selected.includes(o));
+
+  function remove(name) {
+    onChange(selected.filter((o) => o !== name));
+  }
+  function add(e) {
+    const name = e.target.value;
+    if (name) onChange([...selected, name]);
+    e.target.value = '';
+  }
+
+  return (
+    <div className="wt-owners-select">
+      <div className="wt-owners-select__chips">
+        {selected.length === 0 ? <span className="wt-owners-select__empty">— Unassigned —</span> : null}
+        {selected.map((name) => (
+          <span key={name} className="wt-owner-chip">
+            {name}
+            {disabled ? null : (
+              <button type="button" className="wt-owner-chip__remove" aria-label={`Remove ${name}`} onClick={() => remove(name)}>×</button>
+            )}
+          </span>
+        ))}
+      </div>
+      {!disabled && remaining.length > 0 ? (
+        <select className="wt-field-select" value="" onChange={add} aria-label="Add owner">
+          <option value="">+ Add owner…</option>
+          {remaining.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : null}
+    </div>
+  );
+}
+
 export function Field({ label, error, full, children }) {
   return (
     <div className={cx('wt-field', full && 'wt-field-full')}>

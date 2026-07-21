@@ -68,11 +68,12 @@ async function main() {
   res = mockRes();
   await itemsHandler(mockReq({
     method: 'POST', headers: AUTH,
-    body: { description: 'CRUD smoke test item', type: 'Ad-hoc', function: 'UK QFS', owner: 'Tester', priority: 'High', status: 'Not Started', dueType: 'date', dueDate: null },
+    body: { description: 'CRUD smoke test item', type: 'Ad-hoc', function: 'UK QFS', owners: ['Tester'], priority: 'High', status: 'Not Started', dueType: 'date', dueDate: null },
   }), res);
   assert(res.statusCode === 201, 'created');
   const created = res.body.item;
   assert(created.description === 'CRUD smoke test item', 'description round-trips');
+  assert(Array.isArray(created.owners) && created.owners.length === 1 && created.owners[0] === 'Tester', 'single owner round-trips as an array: ' + JSON.stringify(created.owners));
   assert(created.percentComplete === 0, 'starts at 0%');
   assert(created.history.length === 1 && /Item created/.test(created.history[0].change), 'history has "Item created"');
   console.log('  created id =', created.id);
@@ -85,6 +86,18 @@ async function main() {
   assert(patched.status === 'In Progress', 'status updated');
   assert(patched.history.length === 2, 'history grew by one entry');
   assert(/Status changed from "Not Started" to "In Progress"/.test(patched.history[0].change), 'history text correct: ' + patched.history[0].change);
+
+  console.log('--- PATCH /api/items/:id (multiple owners) ---');
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(created.id) }, body: { owners: ['Tester', 'Second Owner'] } }), res);
+  assert(res.statusCode === 200, 'patched with two owners');
+  const multiOwned = res.body.item;
+  assert(Array.isArray(multiOwned.owners) && multiOwned.owners.length === 2 && multiOwned.owners.includes('Tester') && multiOwned.owners.includes('Second Owner'), 'both owners present: ' + JSON.stringify(multiOwned.owners));
+  assert(/Owner\(s\) changed from "Tester" to "Tester, Second Owner"/.test(multiOwned.history[0].change), 'history logs the owner-list change: ' + multiOwned.history[0].change);
+
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(created.id) }, body: { owners: [] } }), res);
+  assert(res.body.item.owners.length === 0, 'owners can be cleared back to an empty array');
 
   console.log('--- GET /api/items includes the new item ---');
   res = mockRes();
@@ -131,7 +144,7 @@ async function main() {
   assert(stillProject.length === 0, 'no items left referencing old "Project" value');
   assert(nowProgramme.length > 0, 'cascaded items now say "Programme": count=' + nowProgramme.length);
 
-  console.log('--- Owners roster: add + rename with cascade ---');
+  console.log('--- Owners roster: add + rename with cascade (multi-owner aware) ---');
   res = mockRes();
   await configHandler(mockReq({ method: 'GET' }), res);
   const preOwnersConfig = res.body.config;
@@ -140,15 +153,23 @@ async function main() {
   res = mockRes();
   await configHandler(mockReq({
     method: 'PATCH', headers: AUTH,
-    body: { lists: { ...preOwnersConfig.lists, owners: [...preOwnersConfig.lists.owners, 'R. Match'] } },
+    body: { lists: { ...preOwnersConfig.lists, owners: [...preOwnersConfig.lists.owners, 'R. Match', 'Co-Owner'] } },
   }), res);
   assert(res.body.config.lists.owners.includes('R. Match'), 'owner added to roster');
+
+  // A co-owned item: renaming R. Match must not disturb "Co-Owner".
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { description: 'Co-owned item', type: 'Ad-hoc', function: 'UK EHS', owners: ['R. Match', 'Co-Owner'], priority: 'Medium', status: 'Not Started' },
+  }), res);
+  const coOwnedItem = res.body.item;
 
   res = mockRes();
   await configHandler(mockReq({
     method: 'PATCH', headers: AUTH,
     body: {
-      lists: { ...preOwnersConfig.lists, owners: preOwnersConfig.lists.owners.filter((o) => o !== 'R. Match').concat('Rebecca Match') },
+      lists: { ...preOwnersConfig.lists, owners: preOwnersConfig.lists.owners.filter((o) => o !== 'R. Match').concat('Rebecca Match', 'Co-Owner') },
       cascadeRename: { field: 'owner', oldValue: 'R. Match', newValue: 'Rebecca Match' },
     },
   }), res);
@@ -156,10 +177,13 @@ async function main() {
 
   res = mockRes();
   await itemsHandler(mockReq({ method: 'GET' }), res);
-  const stillOldOwner = res.body.items.filter((i) => i.owner === 'R. Match');
-  const nowNewOwner = res.body.items.filter((i) => i.owner === 'Rebecca Match');
+  const stillOldOwner = res.body.items.filter((i) => (i.owners || []).includes('R. Match'));
+  const nowNewOwner = res.body.items.filter((i) => (i.owners || []).includes('Rebecca Match'));
   assert(stillOldOwner.length === 0, 'no items left referencing old owner name "R. Match"');
-  assert(nowNewOwner.length > 0, 'cascaded items now say "Rebecca Match": count=' + nowNewOwner.length);
+  assert(nowNewOwner.length > 0, 'cascaded items now include "Rebecca Match": count=' + nowNewOwner.length);
+
+  const cascadedCoOwned = res.body.items.find((i) => i.id === coOwnedItem.id);
+  assert(cascadedCoOwned.owners.includes('Rebecca Match') && cascadedCoOwned.owners.includes('Co-Owner'), 'co-owner untouched by the cascade rename: ' + JSON.stringify(cascadedCoOwned.owners));
 
   console.log('--- DELETE /api/items?sample=true (clear sample data) ---');
   res = mockRes();

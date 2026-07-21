@@ -3,7 +3,7 @@
 // DELETE /api/items/:id -> delete one item                    (requires editor password)
 import { query } from '../_db.js';
 import { requireEditor } from '../_auth.js';
-import { rowToItem, historyForChanges, rollRecurringIfNeeded, WRITABLE_ITEM_COLUMNS } from '../_itemLogic.js';
+import { rowToItem, historyForChanges, rollRecurringIfNeeded, WRITABLE_ITEM_COLUMNS, joinOwners } from '../_itemLogic.js';
 import { withErrorHandling } from '../_errors.js';
 import { createItemsSnapshot } from '../_snapshotLogic.js';
 
@@ -61,7 +61,7 @@ export default withErrorHandling(async function handler(req, res) {
     for (const [jsKey, column] of Object.entries(WRITABLE_ITEM_COLUMNS)) {
       if (jsKey in finalPatch) {
         setClauses.push(`${column} = $${i++}`);
-        values.push(finalPatch[jsKey]);
+        values.push(jsKey === 'owners' ? joinOwners(finalPatch[jsKey]) : finalPatch[jsKey]);
       }
     }
     setClauses.push(`last_updated = $${i++}`);

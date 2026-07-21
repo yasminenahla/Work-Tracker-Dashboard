@@ -4,7 +4,7 @@
 // DELETE /api/items?all=true     -> remove EVERY item          (requires editor password)
 import { query } from './_db.js';
 import { requireEditor } from './_auth.js';
-import { rowToItem } from './_itemLogic.js';
+import { rowToItem, joinOwners } from './_itemLogic.js';
 import { withErrorHandling } from './_errors.js';
 import { createItemsSnapshot } from './_snapshotLogic.js';
 
@@ -36,7 +36,7 @@ export default withErrorHandling(async function handler(req, res) {
        ) VALUES (false, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,0,$12,$13,$14,false,$15,$15,$16)
        RETURNING *`,
       [
-        d.type, d.description.trim(), d.function, d.owner || '', d.raisedBy || '',
+        d.type, d.description.trim(), d.function, joinOwners(d.owners), d.raisedBy || '',
         d.dateRaised || today, d.priority, d.status, d.dueType || 'date',
         d.dueType === 'recurring' ? (d.dueDate || null) : (d.dueDate || null),
         d.dueType === 'recurring' ? d.frequency : null,

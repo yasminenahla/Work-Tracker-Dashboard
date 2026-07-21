@@ -5,6 +5,7 @@
 import { query } from '../_db.js';
 import { SAMPLE_ITEMS } from '../_seedData.js';
 import { withErrorHandling } from '../_errors.js';
+import { joinOwners } from '../_itemLogic.js';
 
 export default withErrorHandling(async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -33,7 +34,7 @@ export default withErrorHandling(async function handler(req, res) {
          next_action, stakeholders, notes, is_sample, created_date, last_updated, history
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,true,$7,$17,$18)`,
       [
-        item.pinned, item.type, item.description, item.function, item.owner, item.raisedBy,
+        item.pinned, item.type, item.description, item.function, joinOwners(item.owners), item.raisedBy,
         dateRaised, item.priority, item.status, item.dueType, dueDate, item.frequency,
         item.percentComplete, item.nextAction, item.stakeholders, item.notes,
         lastUpdated, JSON.stringify(history),

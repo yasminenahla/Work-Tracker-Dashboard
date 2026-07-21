@@ -1,6 +1,6 @@
 // Side panel: item detail, quick edits (editors only), read-only info
 // block, and full activity history (everyone).
-import { Field, BufferedField } from './Common.jsx';
+import { Field, BufferedField, OwnersMultiSelect } from './Common.jsx';
 import { autoRiskFlag, dueLabel, fmtShortFromISODate, fmtDateTime } from '../lib/datamodel.js';
 
 export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, onEditFull, onDelete, canWrite }) {
@@ -36,13 +36,10 @@ export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, 
                 onCommit={(v) => patch({ percentComplete: Math.max(0, Math.min(100, Number(v) || 0)) })}
               />
             </Field>
-            <Field label="Owner">
-              <select className="wt-field-select" value={it.owner || ''} disabled={!canWrite} onChange={(e) => patch({ owner: e.target.value })}>
-                <option value="">— Unassigned —</option>
-                {lists.owners.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </Field>
           </div>
+          <Field label="Owner(s)">
+            <OwnersMultiSelect owners={it.owners} allOwners={lists.owners} disabled={!canWrite} onChange={(owners) => patch({ owners })} />
+          </Field>
           <Field label="Next Action">
             <BufferedField className="wt-field-input" value={it.nextAction || ''} disabled={!canWrite} onCommit={(v) => patch({ nextAction: v })} />
           </Field>

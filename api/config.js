@@ -3,6 +3,7 @@
 import { query } from './_db.js';
 import { requireEditor } from './_auth.js';
 import { withErrorHandling } from './_errors.js';
+import { parseOwners, joinOwners } from './_itemLogic.js';
 
 function rowToConfig(row) {
   return {
@@ -68,7 +69,20 @@ export default withErrorHandling(async function handler(req, res) {
     // rows don't silently fall back to free text no longer in the list.
     const cascade = patch.cascadeRename;
     if (cascade && CASCADE_RENAME_FIELDS.has(cascade.field) && cascade.oldValue && cascade.newValue) {
-      await query(`UPDATE items SET ${cascade.field} = $1 WHERE ${cascade.field} = $2`, [cascade.newValue, cascade.oldValue]);
+      if (cascade.field === 'owner') {
+        // `owner` holds a ", "-joined list, so a plain scalar replace would
+        // miss any item that has other co-owners — rewrite only the
+        // matching element within each item's owner list instead.
+        const { rows: ownerRows } = await query(`SELECT id, owner FROM items WHERE owner LIKE '%' || $1 || '%'`, [cascade.oldValue]);
+        for (const row of ownerRows) {
+          const owners = parseOwners(row.owner);
+          if (!owners.includes(cascade.oldValue)) continue;
+          const updated = owners.map((o) => (o === cascade.oldValue ? cascade.newValue : o));
+          await query('UPDATE items SET owner = $1 WHERE id = $2', [joinOwners(updated), row.id]);
+        }
+      } else {
+        await query(`UPDATE items SET ${cascade.field} = $1 WHERE ${cascade.field} = $2`, [cascade.newValue, cascade.oldValue]);
+      }
     }
 
     res.status(200).json({ config: rowToConfig(rows[0]) });

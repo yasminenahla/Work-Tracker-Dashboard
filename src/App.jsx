@@ -29,11 +29,11 @@ function itemMatchesFilters(it, filters, quickFilter, riskThresholds, staleDays)
   if (filters.function && it.function !== filters.function) return false;
   if (filters.type && it.type !== filters.type) return false;
   if (filters.status && it.status !== filters.status) return false;
-  if (filters.owner && it.owner !== filters.owner) return false;
+  if (filters.owner && !(it.owners || []).includes(filters.owner)) return false;
   if (filters.stale && !isStale(it, staleDays)) return false;
   if (filters.search) {
     const q = filters.search.toLowerCase();
-    const hay = [it.description, it.notes, it.owner, it.stakeholders, it.nextAction].join(' ').toLowerCase();
+    const hay = [it.description, it.notes, (it.owners || []).join(' '), it.stakeholders, it.nextAction].join(' ').toLowerCase();
     if (!hay.includes(q)) return false;
   }
   if (quickFilter === 'totalOpen' && it.status === 'Completed') return false;
@@ -181,7 +181,7 @@ export default function App() {
 
   async function editItem(id, draft) {
     return updateItemById(id, {
-      description: draft.description.trim(), type: draft.type, function: draft.function, owner: draft.owner,
+      description: draft.description.trim(), type: draft.type, function: draft.function, owners: draft.owners,
       raisedBy: draft.raisedBy, dateRaised: draft.dateRaised, priority: draft.priority, status: draft.status,
       dueType: draft.dueType, dueDate: draft.dueDate || null, frequency: draft.dueType === 'recurring' ? draft.frequency : null,
       nextAction: draft.nextAction, stakeholders: draft.stakeholders, notes: draft.notes, percentComplete: draft.percentComplete,
@@ -287,7 +287,15 @@ export default function App() {
       const updated = await api.updateConfig(patch);
       setConfig(updated);
       if (action === 'rename' && group) {
-        setItems((prev) => prev.map((it) => (it[group.itemField] === value ? { ...it, [group.itemField]: newValue } : it)));
+        if (group.key === 'owners') {
+          setItems((prev) => prev.map((it) => (
+            (it.owners || []).includes(value)
+              ? { ...it, owners: it.owners.map((o) => (o === value ? newValue : o)) }
+              : it
+          )));
+        } else {
+          setItems((prev) => prev.map((it) => (it[group.itemField] === value ? { ...it, [group.itemField]: newValue } : it)));
+        }
       }
     } catch (err) {
       if (!handleAuthError(err)) setActionError(err.message);

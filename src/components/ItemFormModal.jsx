@@ -1,13 +1,13 @@
 // Add / Edit item modal — same component for both; `mode` only changes the
 // title/button copy and whether percentComplete is shown.
-import { ModalShell, Field, cx } from './Common.jsx';
+import { ModalShell, Field, cx, OwnersMultiSelect } from './Common.jsx';
 import { todayISO } from '../lib/datamodel.js';
 import { FREQUENCIES } from '../lib/constants.js';
 
 export function emptyDraft(config) {
   return {
     description: '', type: config.lists.types[0] || '', function: config.lists.functions[0] || '',
-    owner: config.defaultOwner || '', raisedBy: '', dateRaised: todayISO(),
+    owners: config.defaultOwner ? [config.defaultOwner] : [], raisedBy: '', dateRaised: todayISO(),
     priority: config.lists.priorities[0] || '', status: config.lists.statuses[0] || '',
     dueType: 'date', dueDate: '', frequency: FREQUENCIES[1],
     nextAction: '', stakeholders: '', notes: '', percentComplete: 0,
@@ -16,7 +16,7 @@ export function emptyDraft(config) {
 
 export function draftFromItem(item) {
   return {
-    description: item.description, type: item.type, function: item.function, owner: item.owner,
+    description: item.description, type: item.type, function: item.function, owners: item.owners || [],
     raisedBy: item.raisedBy || '', dateRaised: item.dateRaised || todayISO(), priority: item.priority,
     status: item.status, dueType: item.dueType, dueDate: item.dueDate || '', frequency: item.frequency || FREQUENCIES[1],
     nextAction: item.nextAction || '', stakeholders: item.stakeholders || '', notes: item.notes || '',
@@ -55,11 +55,8 @@ export function ItemFormModal({ mode, draft: d, errors, lists, onChange, onCance
             {lists.functions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </Field>
-        <Field label="Owner">
-          <select className="wt-field-select" value={d.owner} onChange={(e) => set({ owner: e.target.value })}>
-            <option value="">— Unassigned —</option>
-            {lists.owners.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
+        <Field label="Owner(s)" full>
+          <OwnersMultiSelect owners={d.owners} allOwners={lists.owners} onChange={(owners) => set({ owners })} />
         </Field>
         <Field label="Raised By">
           <input className="wt-field-input" value={d.raisedBy} onChange={(e) => set({ raisedBy: e.target.value })} />

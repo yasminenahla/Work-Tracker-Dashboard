@@ -110,7 +110,7 @@ const CSV_COLUMNS = [
 
 export function itemsToCsv(items, riskThresholds) {
   const rows = items.map((it) => {
-    const withRisk = { ...it, riskFlag: effectiveRiskFlag(it, riskThresholds) };
+    const withRisk = { ...it, riskFlag: effectiveRiskFlag(it, riskThresholds), owner: (it.owners || []).join(', ') };
     return CSV_COLUMNS.map((c) => `"${String(withRisk[c.key] ?? '').replace(/"/g, '""')}"`).join(',');
   });
   const header = CSV_COLUMNS.map((c) => `"${c.header}"`).join(',');

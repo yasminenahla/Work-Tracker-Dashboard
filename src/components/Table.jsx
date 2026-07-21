@@ -16,6 +16,7 @@ function getSortValue(item, key, ctx) {
     case 'id': return item.id;
     case 'priority': { const pi = ctx.lists.priorities.indexOf(item.priority); return pi < 0 ? 999 : pi; }
     case 'due': return item.dueDate || '9999-99-99';
+    case 'owner': return (item.owners || []).join(', ').toLowerCase();
     case 'percentComplete': return item.percentComplete;
     case 'lastUpdated': return item.lastUpdated || '';
     case 'dateRaised': return item.dateRaised || '';
@@ -60,7 +61,7 @@ function TableRow({ item: it, ctx, columns, onTogglePin, onOpenPanel, onQuickEdi
       case 'id': return <td key={colKey} className="wt-cell-muted">{it.id}</td>;
       case 'type': return <td key={colKey}>{it.type}</td>;
       case 'function': return <td key={colKey}><FunctionPill value={it.function} lists={ctx.lists} /></td>;
-      case 'owner': return <td key={colKey}>{it.owner}</td>;
+      case 'owner': return <td key={colKey}>{(it.owners || []).join(', ')}</td>;
       case 'raisedBy': return <td key={colKey} className="wt-cell-dim">{it.raisedBy}</td>;
       case 'dateRaised': return <td key={colKey} className="wt-cell-dim">{fmtShortFromISODate(it.dateRaised)}</td>;
       case 'priority': return <td key={colKey}><PriorityText value={it.priority} lists={ctx.lists} /></td>;

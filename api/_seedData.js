@@ -4,7 +4,7 @@
 export const SAMPLE_ITEMS = [
   {
     pinned: true, type: 'SLA', description: 'Weekly incident report to UK site leadership',
-    function: 'UK EHS', owner: 'R. Match', raisedBy: 'Site Director',
+    function: 'UK EHS', owners: ['R. Match'], raisedBy: 'Site Director',
     dateRaisedOffset: -45, priority: 'High', status: 'On Track',
     dueType: 'recurring', dueDateOffset: 3, frequency: 'Weekly',
     percentComplete: 100, nextAction: 'Send Friday summary',
@@ -17,7 +17,7 @@ export const SAMPLE_ITEMS = [
   },
   {
     pinned: false, type: 'Ad-hoc', description: 'Investigate near-miss report at Leeds warehouse',
-    function: 'UK EHS', owner: 'J. Okafor', raisedBy: 'Warehouse Manager',
+    function: 'UK EHS', owners: ['J. Okafor'], raisedBy: 'Warehouse Manager',
     dateRaisedOffset: -6, priority: 'High', status: 'At Risk',
     dueType: 'date', dueDateOffset: 2, frequency: null,
     percentComplete: 40, nextAction: 'Interview two witnesses',
@@ -30,7 +30,7 @@ export const SAMPLE_ITEMS = [
   },
   {
     pinned: false, type: 'SLA', description: 'Monthly quality metrics pack to plant GM',
-    function: 'UK QFS', owner: 'S. Patel', raisedBy: 'Plant GM',
+    function: 'UK QFS', owners: ['S. Patel'], raisedBy: 'Plant GM',
     dateRaisedOffset: -40, priority: 'Medium', status: 'Overdue',
     dueType: 'recurring', dueDateOffset: -4, frequency: 'Monthly',
     percentComplete: 70, nextAction: 'Finalize scorecard and send',
@@ -43,7 +43,7 @@ export const SAMPLE_ITEMS = [
   },
   {
     pinned: false, type: 'Project', description: 'KSA QFS lab accreditation renewal',
-    function: 'KSA QFS', owner: 'F. Al-Rashid', raisedBy: 'Regional QA Director',
+    function: 'KSA QFS', owners: ['F. Al-Rashid'], raisedBy: 'Regional QA Director',
     dateRaisedOffset: -90, priority: 'High', status: 'Blocked',
     dueType: 'date', dueDateOffset: 16, frequency: null,
     percentComplete: 45, nextAction: 'Submit outstanding documentation',
@@ -55,7 +55,7 @@ export const SAMPLE_ITEMS = [
   },
   {
     pinned: true, type: 'Recurring Meeting', description: 'Bi-weekly KSA-UK QFS sync',
-    function: 'Cross-functional', owner: 'M. Torres', raisedBy: 'Team Leader',
+    function: 'Cross-functional', owners: ['M. Torres'], raisedBy: 'Team Leader',
     dateRaisedOffset: -160, priority: 'Medium', status: 'Not Started',
     dueType: 'recurring', dueDateOffset: 5, frequency: 'Weekly',
     percentComplete: 0, nextAction: 'Prepare agenda',
@@ -67,7 +67,7 @@ export const SAMPLE_ITEMS = [
   },
   {
     pinned: false, type: 'Reporting', description: 'Digital tracker rollout to all functions',
-    function: 'Project', owner: 'Team Leader', raisedBy: 'Self-initiated',
+    function: 'Project', owners: ['Team Leader'], raisedBy: 'Self-initiated',
     dateRaisedOffset: -30, priority: 'Low', status: 'Completed',
     dueType: 'date', dueDateOffset: -3, frequency: null,
     percentComplete: 100, nextAction: 'None — closed out',

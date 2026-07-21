@@ -4,6 +4,17 @@
 // regardless of which client sent them — the browser's copy is for display
 // only. Keep the two in sync if you change the rules.
 
+// `owner` stays a plain TEXT column in Postgres — multiple owners are
+// stored as a ", "-joined string (same free-text-comma pattern the
+// `stakeholders` field already uses) so no schema migration is needed.
+// The API layer is the only place that knows this is really an array.
+export function parseOwners(str) {
+  return str ? str.split(',').map((s) => s.trim()).filter(Boolean) : [];
+}
+export function joinOwners(arr) {
+  return (arr || []).filter(Boolean).join(', ');
+}
+
 export function rowToItem(row) {
   return {
     id: row.id,
@@ -11,7 +22,7 @@ export function rowToItem(row) {
     type: row.type,
     description: row.description,
     function: row.function,
-    owner: row.owner,
+    owners: parseOwners(row.owner),
     raisedBy: row.raised_by,
     dateRaised: dateOnly(row.date_raised),
     priority: row.priority,
@@ -65,8 +76,12 @@ export function historyForChanges(oldItem, patch) {
   if ('priority' in patch && patch.priority !== oldItem.priority) {
     entries.push(historyEntry(`Priority changed from "${oldItem.priority}" to "${patch.priority}"`));
   }
-  if ('owner' in patch && patch.owner !== oldItem.owner) {
-    entries.push(historyEntry(`Owner changed from "${oldItem.owner || '—'}" to "${patch.owner || '—'}"`));
+  if ('owners' in patch) {
+    const oldJoined = joinOwners(oldItem.owners);
+    const newJoined = joinOwners(patch.owners);
+    if (oldJoined !== newJoined) {
+      entries.push(historyEntry(`Owner(s) changed from "${oldJoined || '—'}" to "${newJoined || '—'}"`));
+    }
   }
   const dueChanged =
     ('dueDate' in patch && patch.dueDate !== oldItem.dueDate) ||
@@ -112,7 +127,7 @@ export const WRITABLE_ITEM_COLUMNS = {
   type: 'type',
   description: 'description',
   function: 'function',
-  owner: 'owner',
+  owners: 'owner',
   raisedBy: 'raised_by',
   dateRaised: 'date_raised',
   priority: 'priority',

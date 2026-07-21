@@ -80,7 +80,7 @@ export function ItemFormModal({ mode, draft: d, errors, lists, onChange, onCance
         {isEdit ? (
           <Field label="% Complete">
             <input
-              type="number" min={0} max={100} className="wt-field-input" value={d.percentComplete}
+              type="number" min={0} max={100} step={5} className="wt-field-input" value={d.percentComplete}
               onChange={(e) => set({ percentComplete: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
             />
           </Field>

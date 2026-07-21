@@ -87,7 +87,7 @@ function TableRow({ item: it, ctx, columns, onTogglePin, onOpenPanel, onQuickEdi
                 <div className="wt-progress__fill" style={{ width: `${it.percentComplete}%`, background: solidColor(progressColorVar(it.percentComplete)) }} />
               </div>
               <input
-                type="number" min={0} max={100} className="wt-progress-input" value={it.percentComplete} disabled={!canWrite}
+                type="number" min={0} max={100} step={5} className="wt-progress-input" value={it.percentComplete} disabled={!canWrite}
                 onClick={stop}
                 onChange={(e) => onQuickEdit(it.id, { percentComplete: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
                 aria-label={`Percent complete for ${it.description}`}

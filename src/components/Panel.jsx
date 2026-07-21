@@ -32,7 +32,7 @@ export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, 
             </Field>
             <Field label="% Complete">
               <input
-                type="number" min={0} max={100} className="wt-field-input" value={it.percentComplete} disabled={!canWrite}
+                type="number" min={0} max={100} step={5} className="wt-field-input" value={it.percentComplete} disabled={!canWrite}
                 onChange={(e) => patch({ percentComplete: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
               />
             </Field>

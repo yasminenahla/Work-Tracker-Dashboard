@@ -6,10 +6,13 @@ import { getStoredPassword, clearStoredPassword } from './auth.js';
 export class UnauthorizedError extends Error {}
 
 async function request(path, options = {}) {
-  const isWrite = options.method && options.method !== 'GET';
   const headers = { ...(options.headers || {}) };
   if (options.body) headers['Content-Type'] = 'application/json';
-  if (isWrite) headers['x-editor-password'] = getStoredPassword();
+  // Attach whenever we have one, not just on writes — /api/feedback requires
+  // it on GET too (editor-only read, unlike /api/items). Harmless no-op
+  // header on public endpoints that don't check it.
+  const stored = getStoredPassword();
+  if (stored) headers['x-editor-password'] = stored;
 
   const res = await fetch(path, { ...options, headers });
   if (res.status === 401) {
@@ -56,4 +59,20 @@ export async function fetchConfig() {
 export async function updateConfig(patch) {
   const data = await request('/api/config', { method: 'PATCH', body: JSON.stringify(patch) });
   return data.config;
+}
+
+export async function fetchFeedback() {
+  const data = await request('/api/feedback');
+  return data.entries;
+}
+export async function createFeedback(entry) {
+  const data = await request('/api/feedback', { method: 'POST', body: JSON.stringify(entry) });
+  return data.entry;
+}
+export async function updateFeedback(id, patch) {
+  const data = await request(`/api/feedback/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  return data.entry;
+}
+export async function deleteFeedback(id) {
+  await request(`/api/feedback/${id}`, { method: 'DELETE' });
 }

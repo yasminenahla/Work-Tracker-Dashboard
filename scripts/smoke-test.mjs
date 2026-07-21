@@ -11,6 +11,8 @@ import itemsHandler from '../api/items.js';
 import itemHandler from '../api/items/[id].js';
 import seedHandler from '../api/items/seed.js';
 import configHandler from '../api/config.js';
+import feedbackHandler from '../api/feedback.js';
+import feedbackEntryHandler from '../api/feedback/[id].js';
 
 function mockRes() {
   const res = { statusCode: 200 };
@@ -164,6 +166,44 @@ async function main() {
   res = mockRes();
   await itemsHandler(mockReq({ method: 'GET' }), res);
   assert(res.body.items.every((i) => !i.isSample), 'no sample items remain: ' + res.body.items.length + ' left');
+
+  console.log('--- Feedback: GET without auth is rejected (editor-only, unlike /api/items) ---');
+  res = mockRes();
+  await feedbackHandler(mockReq({ method: 'GET' }), res);
+  assert(res.statusCode === 401, 'unauthenticated feedback read rejected');
+
+  console.log('--- Feedback: create, list, update, delete ---');
+  res = mockRes();
+  await feedbackHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.statusCode === 200 && res.body.entries.length === 0, 'feedback starts empty');
+
+  res = mockRes();
+  await feedbackHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { person: 'Jane Doe', reviewDate: '2026-07-01', strengths: 'Great communicator', areasForGrowth: 'Delegation', goals: 'Lead next project', notes: 'On track for promotion' },
+  }), res);
+  assert(res.statusCode === 201, 'feedback entry created');
+  const feedbackEntry = res.body.entry;
+  assert(feedbackEntry.person === 'Jane Doe' && feedbackEntry.strengths === 'Great communicator', 'fields round-trip');
+
+  res = mockRes();
+  await feedbackHandler(mockReq({ method: 'POST', headers: AUTH, body: { reviewDate: '2026-07-01' } }), res);
+  assert(res.statusCode === 400, 'validation rejects missing person');
+
+  res = mockRes();
+  await feedbackEntryHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(feedbackEntry.id) }, body: { goals: 'Lead next TWO projects' } }), res);
+  assert(res.statusCode === 200 && res.body.entry.goals === 'Lead next TWO projects', 'feedback entry updated');
+
+  res = mockRes();
+  await feedbackEntryHandler(mockReq({ method: 'PATCH', query: { id: String(feedbackEntry.id) }, body: { goals: 'no auth' } }), res);
+  assert(res.statusCode === 401, 'unauthenticated feedback update rejected');
+
+  res = mockRes();
+  await feedbackEntryHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { id: String(feedbackEntry.id) } }), res);
+  assert(res.statusCode === 200, 'feedback entry deleted');
+  res = mockRes();
+  await feedbackHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.body.entries.length === 0, 'feedback empty again after delete');
 
   console.log('\nALL CRUD/ROLLOVER/AUTH CHECKS PASSED');
   process.exit(0);

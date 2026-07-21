@@ -11,7 +11,9 @@ import { SidePanel } from './components/Panel.jsx';
 import { ItemFormModal, emptyDraft, draftFromItem, validateDraft } from './components/ItemFormModal.jsx';
 import { SettingsModal } from './components/SettingsModal.jsx';
 import { UnlockModal } from './components/UnlockModal.jsx';
-import { ConfirmDialog } from './components/Common.jsx';
+import { ConfirmDialog, cx } from './components/Common.jsx';
+import { FeedbackPage } from './components/FeedbackPage.jsx';
+import { FeedbackFormModal, emptyFeedbackDraft, feedbackDraftFromEntry, validateFeedbackDraft } from './components/FeedbackFormModal.jsx';
 import * as api from './lib/apiClient.js';
 import { UnauthorizedError } from './lib/apiClient.js';
 import { getStoredPassword, setStoredPassword, clearStoredPassword, isUnlocked as checkUnlocked } from './lib/auth.js';
@@ -63,6 +65,39 @@ export default function App() {
   const [unlockBusy, setUnlockBusy] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(checkUnlocked());
 
+  // ---- feedback (performance review notes) — editor-only page ----
+  const [page, setPage] = useState(() => (window.location.hash === '#feedback' && checkUnlocked() ? 'feedback' : 'tracker'));
+  const [feedback, setFeedback] = useState(null);
+  const [feedbackLoadError, setFeedbackLoadError] = useState(null);
+  const [feedbackFormModal, setFeedbackFormModal] = useState(null);
+  const [feedbackDeleteConfirmId, setFeedbackDeleteConfirmId] = useState(null);
+
+  function navigate(nextPage) {
+    setPage(nextPage);
+    window.location.hash = nextPage === 'feedback' ? 'feedback' : '';
+  }
+
+  // Locking (or a stale stored password rejected by the server) makes the
+  // page inaccessible — bounce back to the tracker rather than leave a
+  // locked-out empty page showing.
+  useEffect(() => {
+    if (page === 'feedback' && !isUnlocked) navigate('tracker');
+  }, [page, isUnlocked]);
+
+  async function loadFeedback() {
+    setFeedbackLoadError(null);
+    try {
+      const entries = await api.fetchFeedback();
+      setFeedback(entries);
+    } catch (err) {
+      if (!handleAuthError(err)) setFeedbackLoadError(err.message || 'Could not load review notes.');
+    }
+  }
+
+  useEffect(() => {
+    if (page === 'feedback' && isUnlocked && feedback === null && !feedbackLoadError) loadFeedback();
+  }, [page, isUnlocked]);
+
   async function loadAll() {
     setLoadError(null);
     try {
@@ -102,6 +137,9 @@ export default function App() {
   function lock() {
     clearStoredPassword();
     setIsUnlocked(false);
+    // Don't leave personnel data sitting in memory once locked.
+    setFeedback(null);
+    setFeedbackLoadError(null);
   }
 
   function handleAuthError(err) {
@@ -222,6 +260,36 @@ export default function App() {
     }
   }
 
+  // ---- feedback mutations ----
+  async function addFeedback(draft) {
+    try {
+      const created = await api.createFeedback(draft);
+      setFeedback((prev) => [created, ...(prev || [])]);
+      return true;
+    } catch (err) {
+      if (!handleAuthError(err)) setActionError(err.message);
+      return false;
+    }
+  }
+  async function editFeedback(id, draft) {
+    try {
+      const updated = await api.updateFeedback(id, draft);
+      setFeedback((prev) => (prev || []).map((e) => (e.id === id ? updated : e)));
+      return true;
+    } catch (err) {
+      if (!handleAuthError(err)) setActionError(err.message);
+      return false;
+    }
+  }
+  async function deleteFeedbackEntry(id) {
+    try {
+      await api.deleteFeedback(id);
+      setFeedback((prev) => (prev || []).filter((e) => e.id !== id));
+    } catch (err) {
+      if (!handleAuthError(err)) setActionError(err.message);
+    }
+  }
+
   function handleSort(key) {
     setSort((prev) => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }));
   }
@@ -306,6 +374,7 @@ export default function App() {
   const filtersActive = !!(quickFilter || filters.function || filters.type || filters.status || filters.owner || filters.stale || filters.search);
   const panelItem = panelItemId ? items.find((it) => it.id === panelItemId) : null;
   const deleteTarget = deleteConfirmId ? items.find((it) => it.id === deleteConfirmId) : null;
+  const feedbackDeleteTarget = feedbackDeleteConfirmId && feedback ? feedback.find((e) => e.id === feedbackDeleteConfirmId) : null;
 
   return (
     <div className="wt-app">
@@ -315,6 +384,12 @@ export default function App() {
         onOpenAdd={() => setFormModal({ mode: 'add', id: null, draft: emptyDraft(config), errors: {} })}
         isUnlocked={isUnlocked} onOpenUnlock={openUnlock} onLock={lock} canWrite={isUnlocked}
       />
+      {isUnlocked ? (
+        <div className="wt-page-nav">
+          <button type="button" className={cx('wt-page-nav__tab', page === 'tracker' && 'is-active')} onClick={() => navigate('tracker')}>Tracker</button>
+          <button type="button" className={cx('wt-page-nav__tab', page === 'feedback' && 'is-active')} onClick={() => navigate('feedback')}>Feedback</button>
+        </div>
+      ) : null}
       <div className="wt-main">
         {actionError ? (
           <div className="wt-error-banner">
@@ -322,6 +397,17 @@ export default function App() {
             <button type="button" className="wt-banner__dismiss" style={{ marginLeft: 8 }} onClick={() => setActionError(null)} aria-label="Dismiss">×</button>
           </div>
         ) : null}
+
+        {page === 'feedback' ? (
+          <FeedbackPage
+            entries={feedback || []} owners={config.lists.owners}
+            loading={feedback === null && !feedbackLoadError} loadError={feedbackLoadError} onRetry={loadFeedback}
+            onAdd={() => setFeedbackFormModal({ mode: 'add', id: null, draft: emptyFeedbackDraft(), errors: {} })}
+            onEdit={(entry) => setFeedbackFormModal({ mode: 'edit', id: entry.id, draft: feedbackDraftFromEntry(entry), errors: {} })}
+            onDelete={(id) => setFeedbackDeleteConfirmId(id)}
+          />
+        ) : (
+        <Fragment>
         <StaleBanner count={derived.staleCount} staleDays={config.staleDays} onShowStale={() => handleFilterChange({ stale: true })} />
         {derived.showExportNudge ? (
           <ExportNudgeBanner
@@ -369,6 +455,8 @@ export default function App() {
             />
           </Fragment>
         )}
+        </Fragment>
+        )}
       </div>
 
       {panelItem ? (
@@ -414,6 +502,29 @@ export default function App() {
           body={<Fragment>This will permanently remove <span className="wt-confirm-item">{deleteTarget.description}</span> and its activity history. This can’t be undone.</Fragment>}
           onCancel={() => setDeleteConfirmId(null)}
           onConfirm={() => { deleteItem(deleteConfirmId); setDeleteConfirmId(null); }}
+        />
+      ) : null}
+
+      {feedbackFormModal ? (
+        <FeedbackFormModal
+          mode={feedbackFormModal.mode} draft={feedbackFormModal.draft} errors={feedbackFormModal.errors} owners={config.lists.owners}
+          onChange={(d) => setFeedbackFormModal({ ...feedbackFormModal, draft: d })}
+          onCancel={() => setFeedbackFormModal(null)}
+          onSave={async () => {
+            const errors = validateFeedbackDraft(feedbackFormModal.draft);
+            if (Object.keys(errors).length) { setFeedbackFormModal({ ...feedbackFormModal, errors }); return; }
+            const ok = feedbackFormModal.mode === 'add' ? await addFeedback(feedbackFormModal.draft) : await editFeedback(feedbackFormModal.id, feedbackFormModal.draft);
+            if (ok !== false) setFeedbackFormModal(null);
+          }}
+        />
+      ) : null}
+
+      {feedbackDeleteTarget ? (
+        <ConfirmDialog
+          title="Delete this review note?"
+          body={<Fragment>This will permanently remove this note for <span className="wt-confirm-item">{feedbackDeleteTarget.person}</span>. This can’t be undone.</Fragment>}
+          onCancel={() => setFeedbackDeleteConfirmId(null)}
+          onConfirm={() => { deleteFeedbackEntry(feedbackDeleteConfirmId); setFeedbackDeleteConfirmId(null); }}
         />
       ) : null}
     </div>

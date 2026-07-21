@@ -1,6 +1,6 @@
 // Small reusable UI pieces shared across the dashboard, table, panel and
 // modals. Presentation-only — no data-fetching or storage knowledge.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { functionColorVar, statusColorVar, priorityColorVar, riskColorVar, solidColor, tintColor, progressColorVar } from '../lib/colors.js';
 
 export function cx(...parts) {
@@ -94,6 +94,35 @@ export function ConfirmDialog({ title, body, onCancel, onConfirm, cancelLabel, c
       </div>
     </ModalShell>
   );
+}
+
+// For any input/textarea whose value is bound to state that's only updated
+// once an async save round-trips (table quick-edit, side panel, settings
+// thresholds) — binding `value` straight to that prop means a re-render
+// arriving between keystrokes can snap the field back to the pre-edit
+// value, eating characters mid-type. This buffers what's typed in local
+// state and only calls onCommit on blur or Enter, exactly like the Add/Edit
+// modal's already-safe local-draft pattern.
+export function BufferedField({ as = 'input', value, onCommit, ...rest }) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => { setLocal(value); }, [value]);
+
+  function commit() {
+    if (local !== value) onCommit(local);
+  }
+
+  const props = {
+    ...rest,
+    value: local ?? '',
+    onChange: (e) => setLocal(e.target.value),
+    onBlur: commit,
+    onKeyDown: (e) => {
+      if (e.key === 'Enter' && as !== 'textarea') e.currentTarget.blur();
+      rest.onKeyDown?.(e);
+    },
+  };
+
+  return as === 'textarea' ? <textarea {...props} /> : <input {...props} />;
 }
 
 export function Field({ label, error, full, children }) {

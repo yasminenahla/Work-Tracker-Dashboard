@@ -4,7 +4,7 @@
 // onListChange/onToggleColumn/etc callbacks passed from App.jsx, which is
 // the only place that talks to /api/config.
 import { useState } from 'react';
-import { ModalShell, cx } from './Common.jsx';
+import { ModalShell, cx, BufferedField } from './Common.jsx';
 import { COLUMN_DEFS, LIST_GROUPS } from '../lib/constants.js';
 import { fmtDateTime, relativeTimeFrom } from '../lib/datamodel.js';
 
@@ -119,9 +119,9 @@ export function SettingsModal({
           <div>
             <div className="wt-field-label">Risk flag: mark Amber when due within (days)</div>
             <div className="wt-number-row">
-              <input
-                type="number" min={0} max={60} value={config.riskThresholds.amberDueWithinDays}
-                onChange={(e) => onChangeThreshold(Math.max(0, Number(e.target.value) || 0))}
+              <BufferedField
+                type="number" min={0} max={60} value={String(config.riskThresholds.amberDueWithinDays)}
+                onCommit={(v) => onChangeThreshold(Math.max(0, Number(v) || 0))}
               />
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Red always applies once an item is overdue or Blocked.</span>
             </div>

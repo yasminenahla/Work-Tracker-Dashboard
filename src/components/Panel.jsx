@@ -1,6 +1,6 @@
 // Side panel: item detail, quick edits (editors only), read-only info
 // block, and full activity history (everyone).
-import { Field } from './Common.jsx';
+import { Field, BufferedField } from './Common.jsx';
 import { autoRiskFlag, dueLabel, fmtShortFromISODate, fmtDateTime } from '../lib/datamodel.js';
 
 export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, onEditFull, onDelete, canWrite }) {
@@ -31,9 +31,9 @@ export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, 
               </select>
             </Field>
             <Field label="% Complete">
-              <input
-                type="number" min={0} max={100} step={5} className="wt-field-input" value={it.percentComplete} disabled={!canWrite}
-                onChange={(e) => patch({ percentComplete: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+              <BufferedField
+                type="number" min={0} max={100} step={5} className="wt-field-input" value={String(it.percentComplete)} disabled={!canWrite}
+                onCommit={(v) => patch({ percentComplete: Math.max(0, Math.min(100, Number(v) || 0)) })}
               />
             </Field>
             <Field label="Owner">
@@ -44,10 +44,10 @@ export function SidePanel({ item: it, lists, riskThresholds, onClose, onUpdate, 
             </Field>
           </div>
           <Field label="Next Action">
-            <input className="wt-field-input" value={it.nextAction || ''} disabled={!canWrite} onChange={(e) => patch({ nextAction: e.target.value })} />
+            <BufferedField className="wt-field-input" value={it.nextAction || ''} disabled={!canWrite} onCommit={(v) => patch({ nextAction: v })} />
           </Field>
           <Field label="Notes">
-            <textarea className="wt-field-textarea" rows={3} value={it.notes || ''} disabled={!canWrite} onChange={(e) => patch({ notes: e.target.value })} />
+            <BufferedField as="textarea" rows={3} className="wt-field-textarea" value={it.notes || ''} disabled={!canWrite} onCommit={(v) => patch({ notes: v })} />
           </Field>
           <Field label={`Risk flag (auto: ${autoFlag})`}>
             <select className="wt-field-select" value={it.riskOverride || ''} disabled={!canWrite} onChange={(e) => patch({ riskOverride: e.target.value || null })}>

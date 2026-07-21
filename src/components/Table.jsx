@@ -1,6 +1,6 @@
 // Main table: sortable header, per-row pin toggle, inline quick-edit for
 // Status/% Complete (editors only), and click-to-open side panel (anyone).
-import { cx } from './Common.jsx';
+import { cx, BufferedField } from './Common.jsx';
 import { FunctionPill, PriorityText, RiskDot } from './Common.jsx';
 import { effectiveRiskFlag, isStale, dueLabel, fmtShortFromISODate } from '../lib/datamodel.js';
 import { statusColorVar, solidColor, tintColor, progressColorVar } from '../lib/colors.js';
@@ -86,10 +86,10 @@ function TableRow({ item: it, ctx, columns, onTogglePin, onOpenPanel, onQuickEdi
               <div className="wt-progress__track">
                 <div className="wt-progress__fill" style={{ width: `${it.percentComplete}%`, background: solidColor(progressColorVar(it.percentComplete)) }} />
               </div>
-              <input
-                type="number" min={0} max={100} step={5} className="wt-progress-input" value={it.percentComplete} disabled={!canWrite}
+              <BufferedField
+                type="number" min={0} max={100} step={5} className="wt-progress-input" value={String(it.percentComplete)} disabled={!canWrite}
                 onClick={stop}
-                onChange={(e) => onQuickEdit(it.id, { percentComplete: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                onCommit={(v) => onQuickEdit(it.id, { percentComplete: Math.max(0, Math.min(100, Number(v) || 0)) })}
                 aria-label={`Percent complete for ${it.description}`}
               />
             </div>

@@ -107,18 +107,20 @@ function addInterval(isoDate, frequency) {
   return d.toISOString().slice(0, 10);
 }
 
-// When a recurring item is marked Completed: reset it to a fresh cycle
-// instead of leaving it completed, and return the extra history entry to
-// log for the closed-out occurrence. Returns null if this isn't a
-// recurring-completion (i.e. nothing to roll over).
-export function rollRecurringIfNeeded(oldItem, patch, firstStatus) {
+// When a recurring item is marked Completed: advance the due date to the
+// next occurrence so the cadence keeps moving forward, but leave the
+// status/% Complete exactly as set — the item stays visible as "Completed"
+// (e.g. under the Status filter) until whoever picks up the next cycle
+// changes it themselves, instead of silently reverting the moment it's
+// marked done. Returns null if this isn't a recurring-completion (i.e.
+// nothing to roll over).
+export function rollRecurringIfNeeded(oldItem, patch) {
   if (patch.status !== 'Completed' || oldItem.dueType !== 'recurring') return null;
+  const nextDue = oldItem.dueDate ? addInterval(oldItem.dueDate, oldItem.frequency) : oldItem.dueDate;
   return {
-    status: firstStatus,
-    percentComplete: 0,
-    dueDate: oldItem.dueDate ? addInterval(oldItem.dueDate, oldItem.frequency) : oldItem.dueDate,
+    dueDate: nextDue,
     riskOverride: null,
-    historyEntry: historyEntry(`Completed this occurrence (${oldItem.frequency}) — next cycle started`),
+    historyEntry: historyEntry(`Completed this occurrence (${oldItem.frequency})${nextDue ? ` — next due ${nextDue}` : ''}`),
   };
 }
 

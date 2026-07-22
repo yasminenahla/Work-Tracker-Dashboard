@@ -23,6 +23,10 @@ export function Toolbar({ filters, lists, owners, staleDays, lastExportedLabel, 
         <option value="">All Statuses</option>
         {lists.statuses.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
+      <select className="wt-select" value={f.priority} aria-label="Filter by priority" onChange={(e) => onFilterChange({ priority: e.target.value })}>
+        <option value="">All Priorities</option>
+        {lists.priorities.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
       <select className="wt-select" value={f.owner} aria-label="Filter by owner" onChange={(e) => onFilterChange({ owner: e.target.value })}>
         <option value="">All Owners</option>
         {owners.map((o) => <option key={o} value={o}>{o}</option>)}

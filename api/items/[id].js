@@ -35,20 +35,13 @@ export default withErrorHandling(async function handler(req, res) {
     }
     const oldItem = rowToItem(rows[0]);
 
-    // Need the configured "first" status to reset a completed recurring
-    // item to — read it from tracker_config.lists.statuses[0].
-    const configRes = await query('SELECT lists FROM tracker_config WHERE id = 1');
-    const firstStatus = configRes.rows[0]?.lists?.statuses?.[0] || 'Not Started';
-
     let history = historyForChanges(oldItem, patch);
     let finalPatch = { ...patch };
-    const rollover = rollRecurringIfNeeded(oldItem, patch, firstStatus);
+    const rollover = rollRecurringIfNeeded(oldItem, patch);
     if (rollover) {
       history = [rollover.historyEntry, ...history];
       finalPatch = {
         ...finalPatch,
-        status: rollover.status,
-        percentComplete: rollover.percentComplete,
         dueDate: rollover.dueDate,
         riskOverride: rollover.riskOverride,
       };

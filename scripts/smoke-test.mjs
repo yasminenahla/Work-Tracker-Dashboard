@@ -110,12 +110,23 @@ async function main() {
   assert(!!recurringSeed, 'found a recurring seed item to complete');
   const beforeDue = recurringSeed.dueDate;
   res = mockRes();
-  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(recurringSeed.id) }, body: { status: 'Completed' } }), res);
+  await itemHandler(mockReq({
+    method: 'PATCH', headers: AUTH, query: { id: String(recurringSeed.id) },
+    body: { status: 'Completed', percentComplete: 100 },
+  }), res);
   const rolled = res.body.item;
-  assert(rolled.status === 'Not Started', 'rolled back to Not Started, not left Completed: got ' + rolled.status);
-  assert(rolled.percentComplete === 0, '% reset to 0');
-  assert(rolled.dueDate !== beforeDue, 'due date advanced (' + beforeDue + ' -> ' + rolled.dueDate + ')');
+  assert(rolled.status === 'Completed', 'stays Completed instead of auto-reverting, so it\'s still visible under the Status filter: got ' + rolled.status);
+  assert(rolled.percentComplete === 100, '% Complete stays as set, not force-reset to 0: got ' + rolled.percentComplete);
+  assert(rolled.dueDate !== beforeDue, 'due date still advances to the next occurrence (' + beforeDue + ' -> ' + rolled.dueDate + ')');
   assert(/Completed this occurrence/.test(rolled.history[0].change), 'rollover history entry present: ' + rolled.history[0].change);
+
+  console.log('--- Recurring item that stayed Completed is picked up manually for the next cycle ---');
+  res = mockRes();
+  await itemHandler(mockReq({
+    method: 'PATCH', headers: AUTH, query: { id: String(recurringSeed.id) },
+    body: { status: 'Not Started', percentComplete: 0 },
+  }), res);
+  assert(res.body.item.status === 'Not Started', 'user can manually restart the next cycle whenever they pick it up');
 
   console.log('--- DELETE /api/items/:id ---');
   res = mockRes();

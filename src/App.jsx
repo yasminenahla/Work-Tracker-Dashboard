@@ -22,7 +22,7 @@ import { statusColorVar } from './lib/colors.js';
 import { LIST_GROUPS } from './lib/constants.js';
 
 function emptyFilters() {
-  return { function: '', type: '', status: '', owner: '', stale: false, search: '' };
+  return { function: '', type: '', status: '', owner: '', priority: '', stale: false, search: '' };
 }
 
 // `exclude` skips one filter dimension's own check — used by the charts so
@@ -33,6 +33,7 @@ function itemMatchesFilters(it, filters, quickFilter, riskThresholds, staleDays,
   if (exclude !== 'function' && filters.function && it.function !== filters.function) return false;
   if (filters.type && it.type !== filters.type) return false;
   if (exclude !== 'status' && filters.status && it.status !== filters.status) return false;
+  if (filters.priority && it.priority !== filters.priority) return false;
   if (filters.owner && !(it.owners || []).includes(filters.owner)) return false;
   if (filters.stale && !isStale(it, staleDays)) return false;
   if (filters.search) {
@@ -459,7 +460,7 @@ export default function App() {
     );
   }
 
-  const filtersActive = !!(quickFilter || filters.function || filters.type || filters.status || filters.owner || filters.stale || filters.search);
+  const filtersActive = !!(quickFilter || filters.function || filters.type || filters.status || filters.priority || filters.owner || filters.stale || filters.search);
   const panelItem = panelItemId ? items.find((it) => it.id === panelItemId) : null;
   const deleteTarget = deleteConfirmId ? items.find((it) => it.id === deleteConfirmId) : null;
   const feedbackDeleteTarget = feedbackDeleteConfirmId && feedback ? feedback.find((e) => e.id === feedbackDeleteConfirmId) : null;

@@ -9,7 +9,7 @@ const MAX_SNAPSHOTS = 20;
 
 const ITEM_COLUMNS = [
   'id', 'pinned', 'type', 'description', 'function', 'owner', 'raised_by', 'date_raised',
-  'priority', 'status', 'due_type', 'due_date', 'frequency', 'percent_complete', 'next_action',
+  'priority', 'status', 'due_type', 'due_date', 'due_date_2', 'frequency', 'percent_complete', 'next_action',
   'stakeholders', 'notes', 'risk_override', 'is_sample', 'created_date', 'last_updated',
   'history', 'created_at', 'updated_at',
 ];

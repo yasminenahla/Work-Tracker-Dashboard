@@ -29,6 +29,7 @@ export function rowToItem(row) {
     status: row.status,
     dueType: row.due_type,
     dueDate: dateOnly(row.due_date),
+    secondDueDate: dateOnly(row.due_date_2),
     frequency: row.frequency,
     percentComplete: row.percent_complete,
     nextAction: row.next_action,
@@ -61,6 +62,9 @@ function historyEntry(change) {
 
 function dueLabel(item) {
   if (item.dueType === 'recurring') {
+    if (item.frequency === 'Twice Weekly' && item.secondDueDate) {
+      return item.dueDate ? `Twice Weekly (next ${item.dueDate} & ${item.secondDueDate})` : 'Twice Weekly';
+    }
     return item.dueDate ? `${item.frequency} (next ${item.dueDate})` : item.frequency;
   }
   return item.dueDate || '—';
@@ -85,6 +89,7 @@ export function historyForChanges(oldItem, patch) {
   }
   const dueChanged =
     ('dueDate' in patch && patch.dueDate !== oldItem.dueDate) ||
+    ('secondDueDate' in patch && patch.secondDueDate !== oldItem.secondDueDate) ||
     ('frequency' in patch && patch.frequency !== oldItem.frequency) ||
     ('dueType' in patch && patch.dueType !== oldItem.dueType);
   if (dueChanged) {
@@ -131,6 +136,22 @@ function addInterval(isoDate, frequency) {
 // nothing to roll over).
 export function rollRecurringIfNeeded(oldItem, patch) {
   if (patch.status !== 'Completed' || oldItem.dueType !== 'recurring') return null;
+
+  // Twice Weekly with an explicit second date pins the cadence to two
+  // specific weekdays (e.g. Mon & Thu) instead of the computed 3.5-day
+  // grid: swap to the other date, and advance whichever date was just used
+  // by a week so it becomes the new "other" date next time.
+  if (oldItem.frequency === 'Twice Weekly' && oldItem.secondDueDate && oldItem.dueDate) {
+    const nextDue = oldItem.secondDueDate;
+    const nextSecondDue = addInterval(oldItem.dueDate, 'Weekly');
+    return {
+      dueDate: nextDue,
+      secondDueDate: nextSecondDue,
+      riskOverride: null,
+      historyEntry: historyEntry(`Completed this occurrence (Twice Weekly) — next due ${nextDue}`),
+    };
+  }
+
   const nextDue = oldItem.dueDate ? addInterval(oldItem.dueDate, oldItem.frequency) : oldItem.dueDate;
   return {
     dueDate: nextDue,
@@ -151,6 +172,7 @@ export const WRITABLE_ITEM_COLUMNS = {
   status: 'status',
   dueType: 'due_type',
   dueDate: 'due_date',
+  secondDueDate: 'due_date_2',
   frequency: 'frequency',
   percentComplete: 'percent_complete',
   nextAction: 'next_action',

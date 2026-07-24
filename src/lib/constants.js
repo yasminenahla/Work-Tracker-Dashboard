@@ -4,6 +4,10 @@
 // from Settings — DEFAULT_LISTS here is just a same-shape fallback.
 
 export const FREQUENCIES = ['Daily', 'Twice Weekly', 'Weekly', 'Monthly', 'Quarterly', 'Annual'];
+// Named rather than indexed into FREQUENCIES — a positional default silently
+// changes any time an option is inserted earlier in that list (as happened
+// when "Twice Weekly" was added at index 1, ahead of the previous default).
+export const DEFAULT_FREQUENCY = 'Weekly';
 
 export const DEFAULT_LISTS = {
   types: ['SLA', 'Ad-hoc', 'Project', 'Workstream', 'Recurring Meeting', 'Reporting'],

@@ -184,6 +184,29 @@ async function main() {
   assert(settledGaps.every((g) => g === 3 || g === 4), 'once settled, every gap is 3 or 4 days: ' + JSON.stringify(gaps));
   assert(settledGaps[0] + settledGaps[1] === 7 && settledGaps[2] + settledGaps[3] === 7, 'settled gaps alternate so every pair sums to exactly 7 days (a genuine twice-weekly average): ' + JSON.stringify(gaps));
 
+  console.log('--- "Twice Weekly" with an explicit 2nd due date: pins to those exact two weekdays ---');
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: {
+      description: 'Mon/Thu standup', type: 'Recurring Meeting', function: 'UK EHS', priority: 'Low', status: 'Not Started',
+      dueType: 'recurring', dueDate: '2026-08-03', secondDueDate: '2026-08-06', frequency: 'Twice Weekly',
+    },
+  }), res);
+  assert(res.statusCode === 201, 'twice-weekly item with explicit 2nd due date created');
+  let pinnedItem = res.body.item;
+  assert(pinnedItem.secondDueDate === '2026-08-06', 'second due date round-trips: ' + pinnedItem.secondDueDate);
+
+  const expectedSequence = ['2026-08-06', '2026-08-10', '2026-08-13', '2026-08-17'];
+  const actualSequence = [];
+  for (let i = 0; i < expectedSequence.length; i++) {
+    res = mockRes();
+    await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(pinnedItem.id) }, body: { status: 'Completed' } }), res);
+    pinnedItem = res.body.item;
+    actualSequence.push(pinnedItem.dueDate);
+  }
+  assert(JSON.stringify(actualSequence) === JSON.stringify(expectedSequence), 'due date swaps exactly between the two picked weekdays (Mon 03/17 <-> Thu 06/10/13), no drift: ' + JSON.stringify(actualSequence));
+
   console.log('--- DELETE /api/items/:id ---');
   res = mockRes();
   await itemHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { id: String(created.id) } }), res);
@@ -394,7 +417,14 @@ async function main() {
   await calendarEventsHandler(mockReq({ method: 'POST', headers: AUTH, body: { start: '2026-01-01T10:00:00Z', end: '2026-01-01T11:00:00Z' } }), res);
   assert(res.statusCode === 400, 'validation rejects a missing title');
 
-  const manualStart = new Date(Date.now() + 3 * 3600 * 1000);
+  // A fixed mid-morning UTC time on a guaranteed upcoming working weekday
+  // (Mon-Fri, the default) — using "N hours from now" here would sometimes
+  // land after the default 17:00 UTC work-end depending on what time of
+  // day the suite happens to run, making this test flaky.
+  let manualEventOffsetDays = 1;
+  while ([0, 6].includes(new Date(Date.now() + manualEventOffsetDays * 86400000).getUTCDay())) manualEventOffsetDays++;
+  const manualEventDateStr = new Date(Date.now() + manualEventOffsetDays * 86400000).toISOString().slice(0, 10);
+  const manualStart = new Date(`${manualEventDateStr}T10:00:00Z`);
   const manualEnd = new Date(manualStart.getTime() + 30 * 60 * 1000);
   res = mockRes();
   await calendarEventsHandler(mockReq({

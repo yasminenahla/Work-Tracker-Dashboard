@@ -294,6 +294,7 @@ export default function App() {
       description: draft.description.trim(), type: draft.type, function: draft.function, owners: draft.owners,
       raisedBy: draft.raisedBy, dateRaised: draft.dateRaised, priority: draft.priority, status: draft.status,
       dueType: draft.dueType, dueDate: draft.dueDate || null, frequency: draft.dueType === 'recurring' ? draft.frequency : null,
+      secondDueDate: draft.dueType === 'recurring' && draft.frequency === 'Twice Weekly' ? (draft.secondDueDate || null) : null,
       nextAction: draft.nextAction, stakeholders: draft.stakeholders, notes: draft.notes, percentComplete: draft.percentComplete,
     });
   }

@@ -78,6 +78,9 @@ export function effectiveRiskFlag(item, riskThresholds) {
 
 export function dueLabel(item) {
   if (item.dueType === 'recurring') {
+    if (item.frequency === 'Twice Weekly' && item.secondDueDate) {
+      return item.dueDate ? `Twice Weekly (next ${fmtShortFromISODate(item.dueDate)} & ${fmtShortFromISODate(item.secondDueDate)})` : 'Twice Weekly';
+    }
     return item.dueDate ? `${item.frequency} (next ${fmtShortFromISODate(item.dueDate)})` : item.frequency;
   }
   return item.dueDate ? fmtShortFromISODate(item.dueDate) : '—';

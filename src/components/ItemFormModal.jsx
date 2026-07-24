@@ -2,14 +2,14 @@
 // title/button copy and whether percentComplete is shown.
 import { ModalShell, Field, cx, OwnersMultiSelect } from './Common.jsx';
 import { todayISO } from '../lib/datamodel.js';
-import { FREQUENCIES } from '../lib/constants.js';
+import { FREQUENCIES, DEFAULT_FREQUENCY } from '../lib/constants.js';
 
 export function emptyDraft(config) {
   return {
     description: '', type: config.lists.types[0] || '', function: config.lists.functions[0] || '',
     owners: config.defaultOwner ? [config.defaultOwner] : [], raisedBy: '', dateRaised: todayISO(),
     priority: config.lists.priorities[0] || '', status: config.lists.statuses[0] || '',
-    dueType: 'date', dueDate: '', frequency: FREQUENCIES[1],
+    dueType: 'date', dueDate: '', secondDueDate: '', frequency: DEFAULT_FREQUENCY,
     nextAction: '', stakeholders: '', notes: '', percentComplete: 0,
   };
 }
@@ -18,7 +18,8 @@ export function draftFromItem(item) {
   return {
     description: item.description, type: item.type, function: item.function, owners: item.owners || [],
     raisedBy: item.raisedBy || '', dateRaised: item.dateRaised || todayISO(), priority: item.priority,
-    status: item.status, dueType: item.dueType, dueDate: item.dueDate || '', frequency: item.frequency || FREQUENCIES[1],
+    status: item.status, dueType: item.dueType, dueDate: item.dueDate || '', secondDueDate: item.secondDueDate || '',
+    frequency: item.frequency || DEFAULT_FREQUENCY,
     nextAction: item.nextAction || '', stakeholders: item.stakeholders || '', notes: item.notes || '',
     percentComplete: item.percentComplete,
   };
@@ -91,11 +92,20 @@ export function ItemFormModal({ mode, draft: d, errors, lists, onChange, onCance
           {d.dueType === 'date' ? (
             <input type="date" className="wt-field-input" value={d.dueDate} onChange={(e) => set({ dueDate: e.target.value })} />
           ) : (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <select className="wt-field-select" style={{ flex: 1 }} value={d.frequency} onChange={(e) => set({ frequency: e.target.value })}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <select className="wt-field-select" style={{ flex: 1, minWidth: 140 }} value={d.frequency} onChange={(e) => set({ frequency: e.target.value })}>
                 {FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
-              <input type="date" className="wt-field-input" style={{ flex: 1 }} value={d.dueDate} placeholder="Next due (optional)" onChange={(e) => set({ dueDate: e.target.value })} />
+              <div style={{ flex: 1, minWidth: 140 }}>
+                {d.frequency === 'Twice Weekly' ? <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>1st due date</div> : null}
+                <input type="date" className="wt-field-input" value={d.dueDate} placeholder="Next due (optional)" onChange={(e) => set({ dueDate: e.target.value })} />
+              </div>
+              {d.frequency === 'Twice Weekly' ? (
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>2nd due date</div>
+                  <input type="date" className="wt-field-input" value={d.secondDueDate} placeholder="2nd due date (optional)" onChange={(e) => set({ secondDueDate: e.target.value })} />
+                </div>
+              ) : null}
             </div>
           )}
         </div>

@@ -31,14 +31,15 @@ export default withErrorHandling(async function handler(req, res) {
     const { rows } = await query(
       `INSERT INTO items (
          pinned, type, description, function, owner, raised_by, date_raised,
-         priority, status, due_type, due_date, frequency, percent_complete,
+         priority, status, due_type, due_date, due_date_2, frequency, percent_complete,
          next_action, stakeholders, notes, is_sample, created_date, last_updated, history
-       ) VALUES (false, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,0,$12,$13,$14,false,$15,$15,$16)
+       ) VALUES (false, $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0,$13,$14,$15,false,$16,$16,$17)
        RETURNING *`,
       [
         d.type, d.description.trim(), d.function, joinOwners(d.owners), d.raisedBy || '',
         d.dateRaised || today, d.priority, d.status, d.dueType || 'date',
         d.dueType === 'recurring' ? (d.dueDate || null) : (d.dueDate || null),
+        d.dueType === 'recurring' && d.frequency === 'Twice Weekly' ? (d.secondDueDate || null) : null,
         d.dueType === 'recurring' ? d.frequency : null,
         d.nextAction || '', d.stakeholders || '', d.notes || '', today,
         JSON.stringify(history),

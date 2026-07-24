@@ -43,6 +43,7 @@ export default withErrorHandling(async function handler(req, res) {
       finalPatch = {
         ...finalPatch,
         dueDate: rollover.dueDate,
+        ...('secondDueDate' in rollover ? { secondDueDate: rollover.secondDueDate } : {}),
         riskOverride: rollover.riskOverride,
       };
     }

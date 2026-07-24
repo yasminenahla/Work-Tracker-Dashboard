@@ -96,6 +96,9 @@ export default function App() {
   const [schedule, setSchedule] = useState(null);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [scheduleError, setScheduleError] = useState(null);
+  const [manualEvents, setManualEvents] = useState(null);
+  const [manualEventsError, setManualEventsError] = useState(null);
+  const [manualEventsBusy, setManualEventsBusy] = useState(false);
 
   function navigate(nextPage) {
     setPage(nextPage);
@@ -164,10 +167,44 @@ export default function App() {
     setPanelItemId(id);
   }
 
+  async function loadManualEvents() {
+    setManualEventsError(null);
+    try {
+      const events = await api.fetchCalendarEvents();
+      setManualEvents(events);
+      return events;
+    } catch (err) {
+      if (!handleAuthError(err)) setManualEventsError(err.message || 'Could not load manual meetings.');
+      return null;
+    }
+  }
+  async function addManualEvent(draft) {
+    setManualEventsBusy(true);
+    setManualEventsError(null);
+    try {
+      const created = await api.createCalendarEvent(draft);
+      setManualEvents((prev) => [...(prev || []), created].sort((a, b) => new Date(a.start) - new Date(b.start)));
+      loadSchedule();
+    } catch (err) {
+      if (!handleAuthError(err)) setManualEventsError(err.message || 'Could not add that meeting.');
+    } finally {
+      setManualEventsBusy(false);
+    }
+  }
+  async function deleteManualEvent(id) {
+    try {
+      await api.deleteCalendarEvent(id);
+      setManualEvents((prev) => (prev || []).filter((e) => e.id !== id));
+      loadSchedule();
+    } catch (err) {
+      if (!handleAuthError(err)) setManualEventsError(err.message || 'Could not remove that meeting.');
+    }
+  }
+
   useEffect(() => {
     if (page === 'planner' && isUnlocked && calendarSettings === null && !calendarSettingsError) {
-      loadCalendarSettings().then((settings) => {
-        if (settings && settings.icsUrl) loadSchedule();
+      Promise.all([loadCalendarSettings(), loadManualEvents()]).then(([settings, events]) => {
+        if (settings && (settings.icsUrl || (events && events.length))) loadSchedule();
       });
     }
   }, [page, isUnlocked]);
@@ -218,6 +255,8 @@ export default function App() {
     setCalendarSettingsError(null);
     setSchedule(null);
     setScheduleError(null);
+    setManualEvents(null);
+    setManualEventsError(null);
   }
 
   function handleAuthError(err) {
@@ -566,6 +605,8 @@ export default function App() {
           <PlannerPage
             settings={calendarSettings} settingsError={calendarSettingsError} settingsBusy={calendarSettingsBusy}
             onSaveSettings={saveCalendarSettings}
+            manualEvents={manualEvents} manualEventsError={manualEventsError} manualEventsBusy={manualEventsBusy}
+            onAddManualEvent={addManualEvent} onDeleteManualEvent={deleteManualEvent}
             schedule={schedule} scheduleLoading={scheduleLoading} scheduleError={scheduleError}
             onRefresh={loadSchedule} onOpenItem={openItemFromPlanner}
           />

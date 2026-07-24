@@ -32,6 +32,81 @@ function fmtDayHeading(dateStr) {
   const d = new Date(dateStr + 'T12:00:00Z');
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short', timeZone: 'UTC' });
 }
+function fmtEventRange(startIso, endIso) {
+  const s = new Date(startIso), e = new Date(endIso);
+  const dateLabel = s.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+  const timeLabel = `${s.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}–${e.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  return `${dateLabel}, ${timeLabel}`;
+}
+function todayDateStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Fallback/supplement to the ICS link — meetings typed in by hand, for
+// anyone who can't publish or share their real calendar. These count as
+// busy time in the suggestion algorithm exactly like an ICS event does.
+function ManualEventsPanel({ events, error, busy, onAdd, onDelete }) {
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState(todayDateStr());
+  const [start, setStart] = useState('09:00');
+  const [end, setEnd] = useState('10:00');
+  const [formError, setFormError] = useState(null);
+
+  function submit() {
+    setFormError(null);
+    if (!title.trim()) { setFormError('Title is required.'); return; }
+    const startIso = new Date(`${date}T${start}`).toISOString();
+    const endIso = new Date(`${date}T${end}`).toISOString();
+    if (new Date(endIso) <= new Date(startIso)) { setFormError('End time must be after start time.'); return; }
+    onAdd({ title: title.trim(), start: startIso, end: endIso });
+    setTitle('');
+  }
+
+  return (
+    <div className="wt-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div>
+        <div style={{ fontWeight: 700, fontSize: 13 }}>Manual meetings</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          Can’t share your calendar? Add meetings by hand — these count as busy time too, alongside anything read from an ICS link.
+        </div>
+      </div>
+      {error ? <div className="wt-error-banner">{error}</div> : null}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+        <div>
+          <div className="wt-field-label">Title</div>
+          <input className="wt-field-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Client call" />
+        </div>
+        <div>
+          <div className="wt-field-label">Date</div>
+          <input type="date" className="wt-field-input" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div>
+          <div className="wt-field-label">Start</div>
+          <input type="time" className="wt-field-input" value={start} onChange={(e) => setStart(e.target.value)} />
+        </div>
+        <div>
+          <div className="wt-field-label">End</div>
+          <input type="time" className="wt-field-input" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </div>
+        <button type="button" className="wt-add-btn" onClick={submit} disabled={busy}>Add</button>
+      </div>
+      {formError ? <div className="wt-field-error">{formError}</div> : null}
+      {events.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+          {events.map((e) => (
+            <div key={e.id} className="wt-list-row">
+              <span className="wt-list-row__value">{fmtEventRange(e.start, e.end)} — {e.title}</span>
+              <button type="button" className="wt-list-row__remove" title="Remove" onClick={() => onDelete(e.id)}>×</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No manual meetings added yet.</div>
+      )}
+    </div>
+  );
+}
 
 function SettingsForm({ settings, onSave, busy }) {
   const [draft, setDraft] = useState(settings);
@@ -115,6 +190,7 @@ function SettingsForm({ settings, onSave, busy }) {
 
 export function PlannerPage({
   settings, settingsError, onSaveSettings, settingsBusy,
+  manualEvents, manualEventsError, manualEventsBusy, onAddManualEvent, onDeleteManualEvent,
   schedule, scheduleLoading, scheduleError, onRefresh, onOpenItem,
 }) {
   const [settingsOpen, setSettingsOpen] = useState(!settings || !settings.icsUrl);
@@ -129,18 +205,20 @@ export function PlannerPage({
     );
   }
 
+  const hasAnySource = !!settings.icsUrl || (manualEvents || []).length > 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="wt-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14 }}>Planner</div>
           <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-            Suggested Focus, Personal Development, and Team Support time around your real Outlook meetings.
+            Suggested Focus, Personal Development, and Team Support time around your real meetings.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" className="wt-btn-outline" onClick={() => setSettingsOpen((v) => !v)}>{settingsOpen ? 'Hide settings' : 'Settings'}</button>
-          {settings.icsUrl ? (
+          {hasAnySource ? (
             <button type="button" className="wt-btn-outline" onClick={onRefresh} disabled={scheduleLoading}>
               {scheduleLoading ? 'Refreshing…' : '⟳ Refresh'}
             </button>
@@ -155,11 +233,16 @@ export function PlannerPage({
         </>
       ) : null}
 
-      {!settings.icsUrl ? (
+      <ManualEventsPanel
+        events={manualEvents || []} error={manualEventsError} busy={manualEventsBusy}
+        onAdd={onAddManualEvent} onDelete={onDeleteManualEvent}
+      />
+
+      {!hasAnySource ? (
         <div className="wt-card wt-empty-state">
           <div className="wt-empty-state__icon">🗓️</div>
-          <div className="wt-empty-state__title">Connect your Outlook calendar to get started</div>
-          <div className="wt-empty-state__body">Paste your published ICS link above and save — the Planner reads your real meetings (read-only) and suggests Focus, Personal Development, and Team Support blocks around them.</div>
+          <div className="wt-empty-state__title">Add your meetings to get started</div>
+          <div className="wt-empty-state__body">Paste your published Outlook ICS link above, add meetings by hand below, or both — the Planner suggests Focus, Personal Development, and Team Support blocks around whatever's busy.</div>
         </div>
       ) : scheduleError ? (
         <div className="wt-card wt-empty-state">

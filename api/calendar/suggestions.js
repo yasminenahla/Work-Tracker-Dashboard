@@ -1,11 +1,12 @@
-// GET /api/calendar/suggestions -> { needsSetup: true } if no ICS link is
-// configured yet, otherwise { schedule, generatedAt }. Editor-only, like
-// the rest of the Planner. Fetches and parses the configured ICS feed on
-// every call (no caching) — it's a low-traffic, single-user page.
+// GET /api/calendar/suggestions -> { needsSetup: true } if there's neither
+// an ICS link nor any hand-entered meetings yet, otherwise
+// { schedule, generatedAt }. Editor-only, like the rest of the Planner.
+// Fetches and parses the configured ICS feed (if any) on every call (no
+// caching) — it's a low-traffic, single-user page.
 import { query } from '../_db.js';
 import { requireEditor } from '../_auth.js';
 import { withErrorHandling } from '../_errors.js';
-import { rowToCalendarSettings, fetchIcsText, getBusyBlocks, buildSchedule } from '../_calendarLogic.js';
+import { rowToCalendarSettings, rowToManualEvent, fetchIcsText, getBusyBlocks, buildSchedule } from '../_calendarLogic.js';
 
 const DAY_SPAN = 10;
 
@@ -28,16 +29,23 @@ export default withErrorHandling(async function handler(req, res) {
     return;
   }
   const settings = rowToCalendarSettings(rows[0]);
-  if (!settings.icsUrl) {
+
+  const now = new Date();
+  const rangeEnd = new Date(now.getTime() + (DAY_SPAN + 6) * 24 * 60 * 60 * 1000);
+
+  const { rows: manualRows } = await query(
+    'SELECT * FROM manual_calendar_events WHERE end_time > $1 AND start_time < $2 ORDER BY start_time ASC',
+    [now.toISOString(), rangeEnd.toISOString()]
+  );
+  const manualBlocks = manualRows.map(rowToManualEvent).map((e) => ({ start: new Date(e.start), end: new Date(e.end), summary: e.title }));
+
+  if (!settings.icsUrl && manualBlocks.length === 0) {
     res.status(200).json({ needsSetup: true });
     return;
   }
 
-  const icsText = await fetchIcsText(settings.icsUrl);
-
-  const now = new Date();
-  const rangeEnd = new Date(now.getTime() + (DAY_SPAN + 6) * 24 * 60 * 60 * 1000);
-  const busyBlocks = getBusyBlocks(icsText, now, rangeEnd);
+  const icsBlocks = settings.icsUrl ? getBusyBlocks(await fetchIcsText(settings.icsUrl), now, rangeEnd) : [];
+  const busyBlocks = [...icsBlocks, ...manualBlocks].sort((a, b) => a.start - b.start);
 
   const { rows: itemRows } = await query('SELECT id, description, status, due_date, priority FROM items');
   const items = itemRows.map((r) => ({ id: r.id, description: r.description, status: r.status, dueDate: dateOnly(r.due_date), priority: r.priority }));

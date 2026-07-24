@@ -30,6 +30,19 @@ export const WRITABLE_CALENDAR_SETTINGS_COLUMNS = {
 };
 export const JSONB_CALENDAR_COLUMNS = new Set(['work_days']);
 
+// Hand-entered meetings — a fallback/supplement to the ICS link for anyone
+// who can't publish/share their real calendar. Same {start, end, summary}
+// shape as an ICS-derived busy block, so the two sources merge trivially.
+export function rowToManualEvent(row) {
+  return { id: row.id, title: row.title, start: row.start_time, end: row.end_time };
+}
+
+export const WRITABLE_MANUAL_EVENT_COLUMNS = {
+  title: 'title',
+  start: 'start_time',
+  end: 'end_time',
+};
+
 // ---------------------------------------------------------------------
 // ICS fetch + parse
 // ---------------------------------------------------------------------

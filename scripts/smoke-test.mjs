@@ -17,6 +17,8 @@ import snapshotsHandler from '../api/snapshots.js';
 import restoreHandler from '../api/snapshots/[id]/restore.js';
 import calendarSettingsHandler from '../api/calendar/settings.js';
 import calendarSuggestionsHandler from '../api/calendar/suggestions.js';
+import calendarEventsHandler from '../api/calendar/events.js';
+import calendarEventHandler from '../api/calendar/events/[id].js';
 
 function mockRes() {
   const res = { statusCode: 200 };
@@ -350,6 +352,37 @@ async function main() {
   await calendarSuggestionsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
   assert(res.statusCode === 200 && res.body.needsSetup === true, 'reports needsSetup instead of erroring');
 
+  console.log('--- Planner: manual meetings (fallback for anyone who can\'t share a calendar) ---');
+  res = mockRes();
+  await calendarEventsHandler(mockReq({ method: 'GET' }), res);
+  assert(res.statusCode === 401, 'unauthenticated manual-events read rejected');
+
+  res = mockRes();
+  await calendarEventsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.statusCode === 200 && res.body.events.length === 0, 'manual events start empty');
+
+  res = mockRes();
+  await calendarEventsHandler(mockReq({ method: 'POST', headers: AUTH, body: { start: '2026-01-01T10:00:00Z', end: '2026-01-01T11:00:00Z' } }), res);
+  assert(res.statusCode === 400, 'validation rejects a missing title');
+
+  const manualStart = new Date(Date.now() + 3 * 3600 * 1000);
+  const manualEnd = new Date(manualStart.getTime() + 30 * 60 * 1000);
+  res = mockRes();
+  await calendarEventsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { title: 'Client call (typed in by hand)', start: manualStart.toISOString(), end: manualEnd.toISOString() },
+  }), res);
+  assert(res.statusCode === 201, 'manual meeting created');
+  const manualEvent = res.body.event;
+  assert(manualEvent.title === 'Client call (typed in by hand)', 'title round-trips');
+
+  console.log('--- Planner: manual meetings alone (no ICS link) are enough to skip needsSetup ---');
+  res = mockRes();
+  await calendarSuggestionsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.statusCode === 200 && !res.body.needsSetup, 'suggestions generated from manual meetings alone, with no ICS url configured');
+  const manualOnlyBlocks = res.body.schedule.flatMap((d) => d.blocks);
+  assert(manualOnlyBlocks.some((b) => b.type === 'busy' && b.label === 'Client call (typed in by hand)'), 'the manual meeting appears as a busy block');
+
   console.log('--- Planner: seed an urgent item, then compute suggestions against a mocked ICS feed ---');
   res = mockRes();
   await itemsHandler(mockReq({
@@ -371,9 +404,21 @@ async function main() {
     const blocks = res.body.schedule.flatMap((d) => d.blocks);
     assert(blocks.some((b) => b.type === 'busy'), 'mocked ICS meeting appears as a busy block');
     assert(blocks.some((b) => b.type === 'focus' && b.label.includes('Planner focus candidate')), 'the seeded urgent item produced a focus block');
+    assert(blocks.some((b) => b.type === 'busy' && b.label === 'Client call (typed in by hand)'), 'ICS and manual meetings merge together — the earlier manual entry is still there once an ICS url is also configured');
   } finally {
     globalThis.fetch = originalFetch;
   }
+
+  console.log('--- Planner: delete a manual meeting ---');
+  res = mockRes();
+  await calendarEventHandler(mockReq({ method: 'DELETE', query: { id: String(manualEvent.id) } }), res);
+  assert(res.statusCode === 401, 'unauthenticated delete rejected');
+  res = mockRes();
+  await calendarEventHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { id: String(manualEvent.id) } }), res);
+  assert(res.statusCode === 200, 'manual meeting deleted');
+  res = mockRes();
+  await calendarEventsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.body.events.length === 0, 'manual events list empty again after delete');
 
   console.log('--- Planner: a broken ICS link surfaces a clear error instead of crashing ---');
   globalThis.fetch = async () => ({ ok: false, status: 404, text: async () => '' });

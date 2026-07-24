@@ -91,6 +91,17 @@ export async function updateCalendarSettings(patch) {
 export async function fetchCalendarSuggestions() {
   return request('/api/calendar/suggestions');
 }
+export async function fetchCalendarEvents() {
+  const data = await request('/api/calendar/events');
+  return data.events;
+}
+export async function createCalendarEvent(entry) {
+  const data = await request('/api/calendar/events', { method: 'POST', body: JSON.stringify(entry) });
+  return data.event;
+}
+export async function deleteCalendarEvent(id) {
+  await request(`/api/calendar/events/${id}`, { method: 'DELETE' });
+}
 
 export async function fetchSnapshots() {
   const data = await request('/api/snapshots');

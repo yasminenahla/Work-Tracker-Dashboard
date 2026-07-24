@@ -3,7 +3,7 @@
 // themselves live in the database (tracker_config.lists) and are editable
 // from Settings — DEFAULT_LISTS here is just a same-shape fallback.
 
-export const FREQUENCIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annual'];
+export const FREQUENCIES = ['Daily', 'Twice Weekly', 'Weekly', 'Monthly', 'Quarterly', 'Annual'];
 
 export const DEFAULT_LISTS = {
   types: ['SLA', 'Ad-hoc', 'Project', 'Workstream', 'Recurring Meeting', 'Reporting'],

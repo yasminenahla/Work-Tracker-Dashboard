@@ -98,6 +98,21 @@ function addInterval(isoDate, frequency) {
   const d = new Date(isoDate + 'T00:00:00Z');
   switch (frequency) {
     case 'Daily': d.setUTCDate(d.getUTCDate() + 1); break;
+    // No fixed pair of weekdays to anchor to, so this snaps to a fixed
+    // virtual grid spaced every 3.5 days from an arbitrary epoch and moves
+    // to the next grid point — self-correcting (no drift/stuck-parity risk
+    // from compounding whole-day gaps) and alternates 3/4 days forever,
+    // averaging out to exactly twice a week. Only the very first occurrence
+    // (an arbitrary user-picked date, not yet on the grid) may see an
+    // off-pattern gap while it snaps in.
+    case 'Twice Weekly': {
+      const EPOCH_DAYS = Math.floor(Date.UTC(2020, 0, 1) / 86400000);
+      const currentDays = Math.floor(d.getTime() / 86400000);
+      const gridIndex = Math.round((currentDays - EPOCH_DAYS) * 2 / 7);
+      const nextDays = EPOCH_DAYS + Math.round((gridIndex + 1) * 3.5);
+      d.setTime(nextDays * 86400000);
+      break;
+    }
     case 'Weekly': d.setUTCDate(d.getUTCDate() + 7); break;
     case 'Monthly': d.setUTCMonth(d.getUTCMonth() + 1); break;
     case 'Quarterly': d.setUTCMonth(d.getUTCMonth() + 3); break;

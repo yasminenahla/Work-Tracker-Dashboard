@@ -155,6 +155,35 @@ async function main() {
   }), res);
   assert(res.body.item.status === 'Not Started', 'user can manually restart the next cycle whenever they pick it up');
 
+  console.log('--- "Twice Weekly" frequency: alternates 3/4 days, averaging exactly twice a week ---');
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: {
+      description: 'Twice-weekly cadence test', type: 'Recurring Meeting', function: 'UK EHS', priority: 'Low', status: 'Not Started',
+      dueType: 'recurring', dueDate: '2026-08-03', frequency: 'Twice Weekly',
+    },
+  }), res);
+  assert(res.statusCode === 201, 'twice-weekly item created');
+  let twiceWeeklyItem = res.body.item;
+  const gaps = [];
+  let previousDue = twiceWeeklyItem.dueDate;
+  for (let i = 0; i < 5; i++) {
+    res = mockRes();
+    await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(twiceWeeklyItem.id) }, body: { status: 'Completed' } }), res);
+    twiceWeeklyItem = res.body.item;
+    const gapDays = Math.round((new Date(twiceWeeklyItem.dueDate) - new Date(previousDue)) / 86400000);
+    gaps.push(gapDays);
+    previousDue = twiceWeeklyItem.dueDate;
+  }
+  // The very first gap can be off-pattern (the item's initial due date is
+  // an arbitrary user-picked date, not yet aligned to the internal 3.5-day
+  // grid) — every gap after that must have settled into a clean 3/4
+  // alternation that averages to exactly twice a week.
+  const settledGaps = gaps.slice(1);
+  assert(settledGaps.every((g) => g === 3 || g === 4), 'once settled, every gap is 3 or 4 days: ' + JSON.stringify(gaps));
+  assert(settledGaps[0] + settledGaps[1] === 7 && settledGaps[2] + settledGaps[3] === 7, 'settled gaps alternate so every pair sums to exactly 7 days (a genuine twice-weekly average): ' + JSON.stringify(gaps));
+
   console.log('--- DELETE /api/items/:id ---');
   res = mockRes();
   await itemHandler(mockReq({ method: 'DELETE', headers: AUTH, query: { id: String(created.id) } }), res);

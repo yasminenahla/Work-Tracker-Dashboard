@@ -15,6 +15,8 @@ import feedbackHandler from '../api/feedback.js';
 import feedbackEntryHandler from '../api/feedback/[id].js';
 import snapshotsHandler from '../api/snapshots.js';
 import restoreHandler from '../api/snapshots/[id]/restore.js';
+import calendarSettingsHandler from '../api/calendar/settings.js';
+import calendarSuggestionsHandler from '../api/calendar/suggestions.js';
 
 function mockRes() {
   const res = { statusCode: 200 };
@@ -26,6 +28,29 @@ function mockReq({ method, body, query, headers }) {
   return { method, body: body || {}, query: query || {}, headers: headers || {} };
 }
 const AUTH = { 'x-editor-password': 'test-secret' };
+
+// A minimal but realistic ICS feed, timed relative to "now" so the test
+// stays valid no matter what day it's run — the daily recurrence guarantees
+// at least one occurrence lands on a working weekday within the Planner's
+// lookahead window regardless of today's weekday.
+function buildSampleIcs() {
+  const now = new Date();
+  const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const oneOffStart = new Date(now.getTime() + 24 * 3600 * 1000);
+  const oneOffEnd = new Date(oneOffStart.getTime() + 30 * 60 * 1000);
+  const standupStart = new Date(now.getTime() + 2 * 3600 * 1000);
+  const standupEnd = new Date(standupStart.getTime() + 15 * 60 * 1000);
+  return [
+    'BEGIN:VCALENDAR', 'VERSION:2.0',
+    'BEGIN:VEVENT', 'UID:smoke-oneoff@example.com', `DTSTAMP:${fmt(now)}`,
+    `DTSTART:${fmt(oneOffStart)}`, `DTEND:${fmt(oneOffEnd)}`,
+    'SUMMARY:One-off Test Meeting', 'STATUS:CONFIRMED', 'TRANSP:OPAQUE', 'END:VEVENT',
+    'BEGIN:VEVENT', 'UID:smoke-recurring@example.com', `DTSTAMP:${fmt(now)}`,
+    `DTSTART:${standupStart.toISOString().replace(/[-:]/g, '').split('.')[0]}Z`, `DTEND:${fmt(standupEnd)}`,
+    'RRULE:FREQ=DAILY;COUNT=14', 'SUMMARY:Daily Recurring Standup', 'STATUS:CONFIRMED', 'TRANSP:OPAQUE', 'END:VEVENT',
+    'END:VCALENDAR', '',
+  ].join('\r\n');
+}
 
 function assert(cond, msg) {
   if (!cond) throw new Error('ASSERT FAILED: ' + msg);
@@ -308,6 +333,57 @@ async function main() {
   res = mockRes();
   await feedbackHandler(mockReq({ method: 'GET', headers: AUTH }), res);
   assert(res.body.entries.length === 0, 'feedback empty again after delete');
+
+  console.log('--- Planner: settings GET/PATCH auth-gated (fully editor-only, like feedback) ---');
+  res = mockRes();
+  await calendarSettingsHandler(mockReq({ method: 'GET' }), res);
+  assert(res.statusCode === 401, 'unauthenticated settings read rejected');
+
+  res = mockRes();
+  await calendarSettingsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.statusCode === 200, 'settings row exists from migration 0005');
+  assert(res.body.settings.icsUrl === '', 'ics url starts empty');
+  assert(JSON.stringify(res.body.settings.workDays) === '[1,2,3,4,5]', 'default work days Mon-Fri: ' + JSON.stringify(res.body.settings.workDays));
+
+  console.log('--- Planner: suggestions report needsSetup before an ICS url is configured ---');
+  res = mockRes();
+  await calendarSuggestionsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+  assert(res.statusCode === 200 && res.body.needsSetup === true, 'reports needsSetup instead of erroring');
+
+  console.log('--- Planner: seed an urgent item, then compute suggestions against a mocked ICS feed ---');
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { description: 'Planner focus candidate', type: 'Ad-hoc', function: 'UK EHS', priority: 'High', status: 'Blocked', dueType: 'date', dueDate: '2020-01-01' },
+  }), res);
+  assert(res.statusCode === 201, 'seeded a Blocked/overdue item for the algorithm to pick up');
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => buildSampleIcs() });
+  try {
+    res = mockRes();
+    await calendarSettingsHandler(mockReq({ method: 'PATCH', headers: AUTH, body: { icsUrl: 'https://example.com/calendar.ics', timezone: 'UTC' } }), res);
+    assert(res.statusCode === 200 && res.body.settings.icsUrl === 'https://example.com/calendar.ics', 'ics url saved');
+
+    res = mockRes();
+    await calendarSuggestionsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+    assert(res.statusCode === 200 && !res.body.needsSetup, 'suggestions generated once an ICS url is configured: ' + JSON.stringify(res.body).slice(0, 200));
+    const blocks = res.body.schedule.flatMap((d) => d.blocks);
+    assert(blocks.some((b) => b.type === 'busy'), 'mocked ICS meeting appears as a busy block');
+    assert(blocks.some((b) => b.type === 'focus' && b.label.includes('Planner focus candidate')), 'the seeded urgent item produced a focus block');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  console.log('--- Planner: a broken ICS link surfaces a clear error instead of crashing ---');
+  globalThis.fetch = async () => ({ ok: false, status: 404, text: async () => '' });
+  try {
+    res = mockRes();
+    await calendarSuggestionsHandler(mockReq({ method: 'GET', headers: AUTH }), res);
+    assert(res.statusCode === 500 && /HTTP 404/.test(res.body.error), 'broken ICS link reports a clear error: ' + JSON.stringify(res.body));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 
   console.log('\nALL CRUD/ROLLOVER/AUTH CHECKS PASSED');
   process.exit(0);

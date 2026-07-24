@@ -448,6 +448,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .wt-list-add-row input { flex: 1; padding: 7px 8px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 12.5px; background: var(--surface); }
 .wt-add-btn { background: var(--c-brand-electric); border: none; color: #fff; padding: 7px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; }
 
+/* Planner */
+.wt-planner-day__heading { font-size: 13px; font-weight: 700; color: var(--c-brand-blue); margin-bottom: 10px; }
+.wt-planner-day__blocks { display: flex; flex-direction: column; gap: 6px; }
+.wt-planner-block {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px;
+  background: var(--surface-alt); border-left: 3px solid transparent; font-size: 12.5px;
+}
+.wt-planner-block.is-clickable { cursor: pointer; }
+.wt-planner-block.is-clickable:hover { background: var(--surface-sunken); }
+.wt-planner-block__time { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; width: 118px; flex-shrink: 0; }
+.wt-planner-block__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.wt-planner-block__label { color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .wt-settings-tabs { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .wt-settings-tab { background: none; border: none; padding: 9px 4px; margin-right: 14px; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; }
 .wt-settings-tab.is-active { color: var(--c-brand-blue); border-bottom-color: var(--c-brand-blue); }

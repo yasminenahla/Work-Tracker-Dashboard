@@ -80,6 +80,18 @@ export async function deleteFeedback(id) {
   await request(`/api/feedback/${id}`, { method: 'DELETE' });
 }
 
+export async function fetchCalendarSettings() {
+  const data = await request('/api/calendar/settings');
+  return data.settings;
+}
+export async function updateCalendarSettings(patch) {
+  const data = await request('/api/calendar/settings', { method: 'PATCH', body: JSON.stringify(patch) });
+  return data.settings;
+}
+export async function fetchCalendarSuggestions() {
+  return request('/api/calendar/suggestions');
+}
+
 export async function fetchSnapshots() {
   const data = await request('/api/snapshots');
   return data.snapshots;

@@ -14,6 +14,7 @@ import { UnlockModal } from './components/UnlockModal.jsx';
 import { ConfirmDialog, cx } from './components/Common.jsx';
 import { FeedbackPage } from './components/FeedbackPage.jsx';
 import { FeedbackFormModal, emptyFeedbackDraft, feedbackDraftFromEntry, validateFeedbackDraft } from './components/FeedbackFormModal.jsx';
+import { PlannerPage } from './components/PlannerPage.jsx';
 import * as api from './lib/apiClient.js';
 import { UnauthorizedError } from './lib/apiClient.js';
 import { getStoredPassword, setStoredPassword, clearStoredPassword, isUnlocked as checkUnlocked } from './lib/auth.js';
@@ -78,22 +79,34 @@ export default function App() {
   const [isUnlocked, setIsUnlocked] = useState(checkUnlocked());
 
   // ---- feedback (performance review notes) — editor-only page ----
-  const [page, setPage] = useState(() => (window.location.hash === '#feedback' && checkUnlocked() ? 'feedback' : 'tracker'));
+  const HASH_PAGES = new Set(['feedback', 'planner']);
+  const [page, setPage] = useState(() => {
+    const hash = window.location.hash.slice(1);
+    return HASH_PAGES.has(hash) && checkUnlocked() ? hash : 'tracker';
+  });
   const [feedback, setFeedback] = useState(null);
   const [feedbackLoadError, setFeedbackLoadError] = useState(null);
   const [feedbackFormModal, setFeedbackFormModal] = useState(null);
   const [feedbackDeleteConfirmId, setFeedbackDeleteConfirmId] = useState(null);
 
+  // ---- planner (Outlook-linked focus/dev/support suggestions) — editor-only page ----
+  const [calendarSettings, setCalendarSettings] = useState(null);
+  const [calendarSettingsError, setCalendarSettingsError] = useState(null);
+  const [calendarSettingsBusy, setCalendarSettingsBusy] = useState(false);
+  const [schedule, setSchedule] = useState(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState(null);
+
   function navigate(nextPage) {
     setPage(nextPage);
-    window.location.hash = nextPage === 'feedback' ? 'feedback' : '';
+    window.location.hash = HASH_PAGES.has(nextPage) ? nextPage : '';
   }
 
   // Locking (or a stale stored password rejected by the server) makes the
   // page inaccessible — bounce back to the tracker rather than leave a
   // locked-out empty page showing.
   useEffect(() => {
-    if (page === 'feedback' && !isUnlocked) navigate('tracker');
+    if (HASH_PAGES.has(page) && !isUnlocked) navigate('tracker');
   }, [page, isUnlocked]);
 
   async function loadFeedback() {
@@ -108,6 +121,55 @@ export default function App() {
 
   useEffect(() => {
     if (page === 'feedback' && isUnlocked && feedback === null && !feedbackLoadError) loadFeedback();
+  }, [page, isUnlocked]);
+
+  async function loadCalendarSettings() {
+    setCalendarSettingsError(null);
+    try {
+      const settings = await api.fetchCalendarSettings();
+      setCalendarSettings(settings);
+      return settings;
+    } catch (err) {
+      if (!handleAuthError(err)) setCalendarSettingsError(err.message || 'Could not load Planner settings.');
+      return null;
+    }
+  }
+  async function loadSchedule() {
+    setScheduleLoading(true);
+    setScheduleError(null);
+    try {
+      const result = await api.fetchCalendarSuggestions();
+      setSchedule(result.needsSetup ? [] : result.schedule);
+    } catch (err) {
+      if (!handleAuthError(err)) setScheduleError(err.message || 'Could not load your schedule.');
+    } finally {
+      setScheduleLoading(false);
+    }
+  }
+  async function saveCalendarSettings(draft) {
+    setCalendarSettingsBusy(true);
+    setCalendarSettingsError(null);
+    try {
+      const updated = await api.updateCalendarSettings(draft);
+      setCalendarSettings(updated);
+      if (updated.icsUrl) loadSchedule();
+    } catch (err) {
+      if (!handleAuthError(err)) setCalendarSettingsError(err.message || 'Could not save Planner settings.');
+    } finally {
+      setCalendarSettingsBusy(false);
+    }
+  }
+  function openItemFromPlanner(id) {
+    navigate('tracker');
+    setPanelItemId(id);
+  }
+
+  useEffect(() => {
+    if (page === 'planner' && isUnlocked && calendarSettings === null && !calendarSettingsError) {
+      loadCalendarSettings().then((settings) => {
+        if (settings && settings.icsUrl) loadSchedule();
+      });
+    }
   }, [page, isUnlocked]);
 
   async function loadAll() {
@@ -149,9 +211,13 @@ export default function App() {
   function lock() {
     clearStoredPassword();
     setIsUnlocked(false);
-    // Don't leave personnel data sitting in memory once locked.
+    // Don't leave personnel/calendar data sitting in memory once locked.
     setFeedback(null);
     setFeedbackLoadError(null);
+    setCalendarSettings(null);
+    setCalendarSettingsError(null);
+    setSchedule(null);
+    setScheduleError(null);
   }
 
   function handleAuthError(err) {
@@ -477,6 +543,7 @@ export default function App() {
         <div className="wt-page-nav">
           <button type="button" className={cx('wt-page-nav__tab', page === 'tracker' && 'is-active')} onClick={() => navigate('tracker')}>Tracker</button>
           <button type="button" className={cx('wt-page-nav__tab', page === 'feedback' && 'is-active')} onClick={() => navigate('feedback')}>Feedback</button>
+          <button type="button" className={cx('wt-page-nav__tab', page === 'planner' && 'is-active')} onClick={() => navigate('planner')}>Planner</button>
         </div>
       ) : null}
       <div className="wt-main">
@@ -494,6 +561,13 @@ export default function App() {
             onAdd={() => setFeedbackFormModal({ mode: 'add', id: null, draft: emptyFeedbackDraft(), errors: {} })}
             onEdit={(entry) => setFeedbackFormModal({ mode: 'edit', id: entry.id, draft: feedbackDraftFromEntry(entry), errors: {} })}
             onDelete={(id) => setFeedbackDeleteConfirmId(id)}
+          />
+        ) : page === 'planner' ? (
+          <PlannerPage
+            settings={calendarSettings} settingsError={calendarSettingsError} settingsBusy={calendarSettingsBusy}
+            onSaveSettings={saveCalendarSettings}
+            schedule={schedule} scheduleLoading={scheduleLoading} scheduleError={scheduleError}
+            onRefresh={loadSchedule} onOpenItem={openItemFromPlanner}
           />
         ) : (
         <Fragment>

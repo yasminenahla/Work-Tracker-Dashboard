@@ -72,8 +72,9 @@ export const SAMPLE_ITEMS = [
     dueType: 'date', dueDateOffset: -3, frequency: null,
     percentComplete: 100, nextAction: 'None — closed out',
     stakeholders: 'All function owners', notes: 'Signed off and rolled out to KSA team.',
-    lastUpdatedOffset: -3,
+    lastUpdatedOffset: -3, completedAtOffset: -3, completedOnTime: true,
     history: [
+      { offset: -3, change: 'Completed on time' },
       { offset: -3, change: 'Status changed from "In Progress" to "Completed"' },
     ],
   },

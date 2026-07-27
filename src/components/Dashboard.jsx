@@ -70,7 +70,7 @@ const SUMMARY_CARDS = [
   { key: 'overdue', label: 'Overdue', colorVar: '--c-status-critical-rgb' },
   { key: 'atRisk', label: 'At Risk / Blocked', colorVar: '--c-status-warning-rgb' },
   { key: 'dueThisWeek', label: 'Due This Week', colorVar: '--c-brand-electric-rgb' },
-  { key: 'pinned', label: 'Pinned / Watched', colorVar: null },
+  { key: 'completedOnTime', label: 'Completed (On Time)', colorVar: '--c-status-good-rgb' },
 ];
 
 export function SummaryCards({ counts, activeCard, onSelect }) {

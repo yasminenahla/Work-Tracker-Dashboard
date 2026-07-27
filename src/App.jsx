@@ -46,7 +46,7 @@ function itemMatchesFilters(it, filters, quickFilter, riskThresholds, staleDays,
   if (quickFilter === 'overdue' && !isOverdue(it)) return false;
   if (quickFilter === 'atRisk' && !(it.status === 'At Risk' || it.status === 'Blocked')) return false;
   if (quickFilter === 'dueThisWeek' && !isDueThisWeek(it)) return false;
-  if (quickFilter === 'pinned' && !it.pinned) return false;
+  if (quickFilter === 'completedOnTime' && !(it.status === 'Completed' && it.completedOnTime)) return false;
   return true;
 }
 
@@ -499,7 +499,7 @@ export default function App() {
       overdue: items.filter(isOverdue).length,
       atRisk: items.filter((i) => i.status === 'At Risk' || i.status === 'Blocked').length,
       dueThisWeek: items.filter(isDueThisWeek).length,
-      pinned: items.filter((i) => i.pinned).length,
+      completedOnTime: items.filter((i) => i.status === 'Completed' && i.completedOnTime).length,
     };
 
     // Both charts reflect the currently active quick-filter/search/etc, but

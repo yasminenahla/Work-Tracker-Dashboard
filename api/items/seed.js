@@ -23,6 +23,8 @@ export default withErrorHandling(async function handler(req, res) {
     const dateRaised = offsetISO(today, item.dateRaisedOffset);
     const dueDate = item.dueDateOffset === null ? null : offsetISO(today, item.dueDateOffset);
     const lastUpdated = offsetISO(today, item.lastUpdatedOffset);
+    const completedAt = item.completedAtOffset != null ? `${offsetISO(today, item.completedAtOffset)}T09:00:00.000Z` : null;
+    const completedOnTime = item.completedOnTime ?? null;
     const history = item.history.map((h) => ({
       timestamp: `${offsetISO(today, h.offset)}T09:00:00.000Z`,
       change: h.change,
@@ -31,13 +33,14 @@ export default withErrorHandling(async function handler(req, res) {
       `INSERT INTO items (
          pinned, type, description, function, owner, raised_by, date_raised,
          priority, status, due_type, due_date, frequency, percent_complete,
-         next_action, stakeholders, notes, is_sample, created_date, last_updated, history
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,true,$7,$17,$18)`,
+         next_action, stakeholders, notes, completed_at, completed_on_time,
+         is_sample, created_date, last_updated, history
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,true,$7,$19,$20)`,
       [
         item.pinned, item.type, item.description, item.function, joinOwners(item.owners), item.raisedBy,
         dateRaised, item.priority, item.status, item.dueType, dueDate, item.frequency,
         item.percentComplete, item.nextAction, item.stakeholders, item.notes,
-        lastUpdated, JSON.stringify(history),
+        completedAt, completedOnTime, lastUpdated, JSON.stringify(history),
       ]
     );
   }

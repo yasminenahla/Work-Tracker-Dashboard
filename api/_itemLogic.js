@@ -36,6 +36,8 @@ export function rowToItem(row) {
     stakeholders: row.stakeholders,
     notes: row.notes,
     riskOverride: row.risk_override,
+    completedAt: row.completed_at,
+    completedOnTime: row.completed_on_time,
     isSample: row.is_sample,
     createdDate: dateOnly(row.created_date),
     lastUpdated: dateOnly(row.last_updated),
@@ -58,6 +60,9 @@ function fmtShort(isoDate) {
 }
 function historyEntry(change) {
   return { timestamp: new Date().toISOString(), change: `${fmtShort(todayISO())}: ${change}` };
+}
+function daysBetweenISO(fromISO, toISO) {
+  return Math.round((new Date(toISO + 'T00:00:00Z') - new Date(fromISO + 'T00:00:00Z')) / 86400000);
 }
 
 function dueLabel(item) {
@@ -127,6 +132,24 @@ function addInterval(isoDate, frequency) {
   return d.toISOString().slice(0, 10);
 }
 
+// Fires only on a genuine new completion — status transitioning *to*
+// Completed, not just staying there across an unrelated edit — and judges
+// it against oldItem.dueDate, the due date active for the occurrence just
+// finished, captured *before* rollRecurringIfNeeded advances it to the
+// next occurrence. Backs the "Completed (On Time)" dashboard card.
+export function detectCompletion(oldItem, patch) {
+  if (patch.status !== 'Completed' || oldItem.status === 'Completed') return null;
+  const today = todayISO();
+  const dueDate = oldItem.dueDate;
+  const onTime = !dueDate || today <= dueDate;
+  const lateByDays = dueDate && !onTime ? daysBetweenISO(dueDate, today) : 0;
+  return {
+    completedAt: new Date().toISOString(),
+    completedOnTime: onTime,
+    historyEntry: historyEntry(onTime ? 'Completed on time' : `Completed ${lateByDays} day${lateByDays === 1 ? '' : 's'} late`),
+  };
+}
+
 // When a recurring item is marked Completed: advance the due date to the
 // next occurrence so the cadence keeps moving forward, but leave the
 // status/% Complete exactly as set — the item stays visible as "Completed"
@@ -179,4 +202,6 @@ export const WRITABLE_ITEM_COLUMNS = {
   stakeholders: 'stakeholders',
   notes: 'notes',
   riskOverride: 'risk_override',
+  completedAt: 'completed_at',
+  completedOnTime: 'completed_on_time',
 };

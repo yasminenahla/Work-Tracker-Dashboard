@@ -51,7 +51,7 @@ function TableHeaderCell({ col, sortKey, sortDir, onSort }) {
   );
 }
 
-function TableRow({ item: it, ctx, columns, onTogglePin, onOpenPanel, onQuickEdit, canWrite }) {
+function TableRow({ item: it, rowNumber, ctx, columns, onTogglePin, onOpenPanel, onQuickEdit, canWrite }) {
   const stale = isStale(it, ctx.staleDays);
   const risk = effectiveRiskFlag(it, ctx.riskThresholds);
   const stop = (e) => e.stopPropagation();
@@ -110,6 +110,7 @@ function TableRow({ item: it, ctx, columns, onTogglePin, onOpenPanel, onQuickEdi
       className={cx(it.pinned && 'is-pinned', stale && 'is-stale')}
       onClick={() => onOpenPanel(it.id)} tabIndex={0} role="button" aria-label={`Open details for ${it.description}`}
     >
+      <td className="wt-cell-muted" style={{ textAlign: 'center' }}>{rowNumber}</td>
       <td style={{ textAlign: 'center' }} onClick={(e) => { e.stopPropagation(); if (canWrite) onTogglePin(it.id); }}>
         <button
           type="button" className="wt-star-btn" disabled={!canWrite}
@@ -139,14 +140,15 @@ export function Table({ items, lists, riskThresholds, staleDays, visibleColumns,
         <table className="wt-table">
           <thead>
             <tr>
+              <th style={{ width: 30 }}>#</th>
               <th style={{ width: 34 }}><span className="wt-visually-hidden">Pin</span></th>
               <th>Description</th>
               {cols.map((c) => <TableHeaderCell key={c.key} col={c} sortKey={sortKey} sortDir={sortDir} onSort={onSort} />)}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((it) => (
-              <TableRow key={it.id} item={it} ctx={ctx} columns={cols} onTogglePin={onTogglePin} onOpenPanel={onOpenPanel} onQuickEdit={onQuickEdit} canWrite={canWrite} />
+            {sorted.map((it, idx) => (
+              <TableRow key={it.id} item={it} rowNumber={idx + 1} ctx={ctx} columns={cols} onTogglePin={onTogglePin} onOpenPanel={onOpenPanel} onQuickEdit={onQuickEdit} canWrite={canWrite} />
             ))}
           </tbody>
         </table>

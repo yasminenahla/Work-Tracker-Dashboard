@@ -3,7 +3,7 @@
 // DELETE /api/items/:id -> delete one item                    (requires editor password)
 import { query } from '../_db.js';
 import { requireEditor } from '../_auth.js';
-import { rowToItem, historyForChanges, rollRecurringIfNeeded, WRITABLE_ITEM_COLUMNS, joinOwners } from '../_itemLogic.js';
+import { rowToItem, historyForChanges, detectCompletion, rollRecurringIfNeeded, WRITABLE_ITEM_COLUMNS, joinOwners } from '../_itemLogic.js';
 import { withErrorHandling } from '../_errors.js';
 import { createItemsSnapshot } from '../_snapshotLogic.js';
 
@@ -37,6 +37,15 @@ export default withErrorHandling(async function handler(req, res) {
 
     let history = historyForChanges(oldItem, patch);
     let finalPatch = { ...patch };
+    const completion = detectCompletion(oldItem, patch);
+    if (completion) {
+      history = [completion.historyEntry, ...history];
+      finalPatch = {
+        ...finalPatch,
+        completedAt: completion.completedAt,
+        completedOnTime: completion.completedOnTime,
+      };
+    }
     const rollover = rollRecurringIfNeeded(oldItem, patch);
     if (rollover) {
       history = [rollover.historyEntry, ...history];

@@ -132,7 +132,61 @@ async function main() {
   assert(res.body.items.some((i) => i.id === created.id), 'new item present in list');
   assert(res.body.items.length === 7, 'seed(6) + created(1) = 7');
 
+  console.log('--- Completion detection: "Completed (On Time)" tracking ---');
+  function isoOffset(days) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { description: 'On-time completion test', type: 'Ad-hoc', function: 'UK EHS', priority: 'Medium', status: 'Not Started', dueType: 'date', dueDate: isoOffset(5) },
+  }), res);
+  const onTimeItem = res.body.item;
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(onTimeItem.id) }, body: { status: 'Completed' } }), res);
+  assert(res.body.item.completedOnTime === true, 'completing before the due date is flagged on-time');
+  assert(!!res.body.item.completedAt, 'completedAt timestamp is stamped');
+  assert(/Completed on time/.test(res.body.item.history[0].change), 'history logs "Completed on time": ' + res.body.item.history[0].change);
+
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { description: 'Late completion test', type: 'Ad-hoc', function: 'UK EHS', priority: 'Medium', status: 'Not Started', dueType: 'date', dueDate: isoOffset(-4) },
+  }), res);
+  const lateItem = res.body.item;
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(lateItem.id) }, body: { status: 'Completed' } }), res);
+  assert(res.body.item.completedOnTime === false, 'completing after the due date is flagged late');
+  assert(/Completed 4 days? late/.test(res.body.item.history[0].change), 'history logs how many days late: ' + res.body.item.history[0].change);
+
+  console.log('--- Completion detection judges recurring items against the pre-rollover due date ---');
+  res = mockRes();
+  await itemsHandler(mockReq({
+    method: 'POST', headers: AUTH,
+    body: { description: 'Overdue recurring completion test', type: 'Recurring Meeting', function: 'UK EHS', priority: 'Medium', status: 'Not Started', dueType: 'recurring', dueDate: isoOffset(-3), frequency: 'Weekly' },
+  }), res);
+  const overdueRecurring = res.body.item;
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(overdueRecurring.id) }, body: { status: 'Completed' } }), res);
+  const rolledLate = res.body.item;
+  assert(new Date(rolledLate.dueDate) > new Date(), 'due date rolled forward into the future as usual');
+  assert(rolledLate.completedOnTime === false, 'still correctly flagged late — judged against the occurrence that was actually overdue, not the rolled-over future due date: ' + JSON.stringify({ dueDate: rolledLate.dueDate, completedOnTime: rolledLate.completedOnTime }));
+
+  console.log('--- Re-saving an already-Completed item does not re-stamp completedAt ---');
+  // pg returns TIMESTAMPTZ columns as Date objects — compare by value, not
+  // object identity (the mock res.json() here doesn't round-trip through
+  // real JSON serialization the way an actual HTTP response would).
+  const firstCompletedAt = new Date(rolledLate.completedAt).getTime();
+  res = mockRes();
+  await itemHandler(mockReq({ method: 'PATCH', headers: AUTH, query: { id: String(overdueRecurring.id) }, body: { status: 'Completed', notes: 'unrelated edit' } }), res);
+  assert(new Date(res.body.item.completedAt).getTime() === firstCompletedAt, 'completedAt only updates on a genuine new completion, not a no-op re-save while already Completed');
+
   console.log('--- Recurring rollover: complete a recurring item ---');
+  res = mockRes();
+  await itemsHandler(mockReq({ method: 'GET' }), res);
   const recurringSeed = res.body.items.find((i) => i.dueType === 'recurring' && i.status === 'Not Started');
   assert(!!recurringSeed, 'found a recurring seed item to complete');
   const beforeDue = recurringSeed.dueDate;
